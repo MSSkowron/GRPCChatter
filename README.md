@@ -21,8 +21,6 @@ GRPCChatter employs a robust client-server architecture where communication is f
 
 - **User-Friendly**: The provided client code offers an intuitive and user-friendly interface, simplifying the process of initiating conversations and exchanging messages.
 
-## Key Dependencies
-
 ## Requirements
 
 Make sure you have Go 1.21 or a compatible version installed.
