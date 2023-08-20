@@ -9,7 +9,9 @@ GRPCChatter is a real-time chat application implemented in Go, leveraging gRPC t
 
 ## Architecture Overview
 
-GRPCChatter employs a robust client-server architecture where communication is facilitated through the gRPC framework. Clients establish connections with the server via gRPC bi-directional channels, allowing for real-time, bi-directional message exchange.
+GRPCChatter employs a robust client-server architecture where communication is facilitated through the gRPC framework. Clients establish connections with the server via gRPC bi-directional channels using `GRPCChatter Client`, allowing for real-time, bi-directional message exchange.
+
+![Architecture](./docs/architecture.png)
 
 ## Features
 
