@@ -16,4 +16,7 @@ lint:
 clean:
 	@rm -rf bin
 
-.PHONY: build run test lint clean
+format:
+	@go fmt ./...
+
+.PHONY: build run test lint clean format
