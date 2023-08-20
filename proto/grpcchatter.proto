@@ -7,10 +7,6 @@ option go_package = "/proto";
 message ClientMessage {
     string name = 1;
     string body = 2;
-    oneof recipient {
-        string to_user = 3;
-        bool to_all = 4;
-    }
 }
 
 message ServerMessage {
