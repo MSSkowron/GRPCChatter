@@ -177,17 +177,10 @@ func (s *GRPCChatterServer) removeClient(id int) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	index := -1
 	for i, c := range s.clients {
 		if c.id == id {
-			index = i
+			s.clients = append(s.clients[:i], s.clients[i+1:]...)
 			break
 		}
 	}
-
-	if index == -1 {
-		return
-	}
-
-	s.clients = append(s.clients[:index], s.clients[index+1:]...)
 }
