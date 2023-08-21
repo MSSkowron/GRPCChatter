@@ -154,9 +154,13 @@ func (c *Client) receive() {
 			return
 		}
 
-		c.receiveQueue <- Message{
+		select {
+		case c.receiveQueue <- Message{
 			Sender: msg.Name,
 			Body:   msg.Body,
+		}:
+		case <-c.closeCh:
+			return
 		}
 	}
 }
