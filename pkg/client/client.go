@@ -30,6 +30,7 @@ type Client struct {
 	sendQueue     chan string
 	closeCh       chan struct{}
 	wg            sync.WaitGroup
+	mu            sync.Mutex
 }
 
 // Message represents a chat message.
@@ -49,6 +50,9 @@ func NewClient(name string, serverAddress string) *Client {
 // Join connects the client to the server, initializes message channels, and starts receiving and sending messages.
 // Returns ErrAlreadyJoined when a connection with the server has already been established.
 func (c *Client) Join() error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	if c.conn != nil || c.stream != nil {
 		return ErrAlreadyJoined
 	}
@@ -81,6 +85,7 @@ func (c *Client) Join() error {
 // It blocks until the message is sent or returns immediately when the stream is closed, and the message is discarded.
 // The Join() method must be called before the first usage.
 func (c *Client) Send(message string) error {
+	c.mu.Lock()
 	if c.conn == nil {
 		return ErrConnectionNotExists
 	}
@@ -88,6 +93,7 @@ func (c *Client) Send(message string) error {
 	if c.stream == nil {
 		return ErrStreamNotExists
 	}
+	c.mu.Unlock()
 
 	select {
 	case c.sendQueue <- message:
@@ -101,6 +107,7 @@ func (c *Client) Send(message string) error {
 // It blocks until a message arrives or returns immediately when the stream is closed, returning an empty message.
 // The Join() method must be called before the first usage.
 func (c *Client) Receive() (Message, error) {
+	c.mu.Lock()
 	if c.conn == nil {
 		return Message{}, ErrConnectionNotExists
 	}
@@ -108,6 +115,7 @@ func (c *Client) Receive() (Message, error) {
 	if c.stream == nil {
 		return Message{}, ErrStreamNotExists
 	}
+	c.mu.Unlock()
 
 	select {
 	case msg := <-c.receiveQueue:
@@ -126,7 +134,7 @@ func (c *Client) send() {
 				Name: c.name,
 				Body: msg,
 			}); err != nil {
-				c.Close()
+				c.close()
 				return
 			}
 		case <-c.closeCh:
@@ -140,7 +148,7 @@ func (c *Client) receive() {
 	for {
 		msg, err := c.stream.Recv()
 		if err != nil {
-			c.Close()
+			c.close()
 			return
 		}
 		c.receiveQueue <- Message{
@@ -150,17 +158,28 @@ func (c *Client) receive() {
 	}
 }
 
-// Close gracefully terminates the client, closing the connection with the server and cleaning up associated resources.
-func (c *Client) Close() {
+func (c *Client) close() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	if c.conn == nil || c.stream == nil {
 		return
 	}
 
-	close(c.closeCh)
-	c.wg.Wait()
+	select {
+	case <-c.closeCh:
+	default:
+		close(c.closeCh)
+	}
 
 	c.conn.Close()
 
 	c.conn = nil
 	c.stream = nil
+}
+
+// Close gracefully terminates the client, closing the connection with the server and cleaning up associated resources.
+func (c *Client) Close() {
+	c.close()
+	c.wg.Wait()
 }

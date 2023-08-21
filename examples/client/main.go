@@ -2,17 +2,27 @@ package main
 
 import (
 	"fmt"
+	"log"
 
 	"github.com/MSSkowron/GRPCChatter/pkg/client"
 )
 
 func main() {
-	c := client.NewClient("mateusz", ":5000")
+	c := client.NewClient("alicja", ":5000")
 	defer c.Close()
 
-	c.Join()
+	if err := c.Join(); err != nil {
+		log.Fatalln(err)
+	}
 
-	c.Send("hello")
+	if err := c.Send("hello"); err != nil {
+		log.Fatalln(err)
+	}
 
-	fmt.Println(c.Receive())
+	msg, err := c.Receive()
+	if err != nil {
+		log.Fatalln(err)
+	}
+
+	fmt.Printf("[%s]: %s\n", msg.Sender, msg.Body)
 }
