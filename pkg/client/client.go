@@ -12,8 +12,12 @@ import (
 )
 
 var (
+	// ErrConnectionNotExists is returned when attempting an operation on a non-existent server connection.
 	ErrConnectionNotExists = errors.New("connection with the server does not exist")
-	ErrStreamNotExists     = errors.New("stream with the server does not exist")
+	// ErrStreamNotExists is returned when attempting an operation on a non-existent server stream.
+	ErrStreamNotExists = errors.New("stream with the server does not exist")
+	// ErrAlreadyJoined is returned when a client attempts to join the chat server more than once.
+	ErrAlreadyJoined = errors.New("already joined")
 )
 
 // Client represents a chat client.
@@ -30,22 +34,25 @@ type Client struct {
 
 // Message represents a chat message.
 type Message struct {
-	Sender string
-	Body   string
+	Sender string // The sender's name.
+	Body   string // The message content.
 }
 
 // NewClient creates a new chat client.
-func NewClient(name string, serverAddress string) (*Client, error) {
-	client := &Client{
+func NewClient(name string, serverAddress string) *Client {
+	return &Client{
 		name:          name,
 		serverAddress: serverAddress,
 	}
-
-	return client, nil
 }
 
-// Join connects to the server, starts receiving messages, and enables sending messages.
+// Join connects the client to the server, initializes message channels, and starts receiving and sending messages.
+// Returns ErrAlreadyJoined when a connection with the server has already been established.
 func (c *Client) Join() error {
+	if c.conn != nil || c.stream != nil {
+		return ErrAlreadyJoined
+	}
+
 	conn, err := grpc.Dial(c.serverAddress, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return fmt.Errorf("failed to connect to server: %w", err)
@@ -71,8 +78,8 @@ func (c *Client) Join() error {
 }
 
 // Send sends a message to the server.
-// It blocks until the message is sent or returns immediately when the stream is closed and returns an empty message.
-// Join() should be called before the first usage.
+// It blocks until the message is sent or returns immediately when the stream is closed, and the message is discarded.
+// The Join() method must be called before the first usage.
 func (c *Client) Send(message string) error {
 	if c.conn == nil {
 		return ErrConnectionNotExists
@@ -91,8 +98,8 @@ func (c *Client) Send(message string) error {
 }
 
 // Receive receives a message from the server.
-// It blocks until a message comes in and returns the incoming message or returns immediately when the stream is closed and returns an empty message.
-// Join() should be called before the first usage.
+// It blocks until a message arrives or returns immediately when the stream is closed, returning an empty message.
+// The Join() method must be called before the first usage.
 func (c *Client) Receive() (Message, error) {
 	if c.conn == nil {
 		return Message{}, ErrConnectionNotExists
@@ -145,14 +152,14 @@ func (c *Client) receive() {
 
 // Close gracefully terminates the client, closing the connection with the server and cleaning up associated resources.
 func (c *Client) Close() {
-	if _, ok := <-c.closeCh; ok {
-		close(c.closeCh)
-		c.wg.Wait()
+	if c.conn == nil || c.stream == nil {
+		return
 	}
 
-	if c.conn != nil {
-		c.conn.Close()
-	}
+	close(c.closeCh)
+	c.wg.Wait()
+
+	c.conn.Close()
 
 	c.conn = nil
 	c.stream = nil
