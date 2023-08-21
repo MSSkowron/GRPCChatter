@@ -24,6 +24,7 @@ type GRPCChatterServer struct {
 	address string
 	port    string
 
+	mu      sync.Mutex
 	clients []*client
 }
 
@@ -33,8 +34,8 @@ type client struct {
 }
 
 type message struct {
-	clientName string
-	body       string
+	sender string
+	body   string
 }
 
 func NewGRPCChatterServer(opts ...ServerOpt) *GRPCChatterServer {
@@ -77,7 +78,7 @@ func (s *GRPCChatterServer) Chat(chs proto.GRPCChatter_ChatServer) error {
 
 	log.Printf("Client [%d] joined the chat\n", c.id)
 
-	s.clients = append(s.clients, c)
+	s.addClient(c)
 
 	wg := &sync.WaitGroup{}
 	wg.Add(2)
@@ -110,22 +111,24 @@ func (s *GRPCChatterServer) receive(chs proto.GRPCChatter_ChatServer, c *client,
 		}
 
 		msg := message{
-			clientName: mssg.Name,
-			body:       mssg.Body,
+			sender: mssg.Name,
+			body:   mssg.Body,
 		}
 
-		log.Printf("Received a new message: {Sender: %s; Body: %s} from client [%d]\n", msg.clientName, msg.body, c.id)
+		log.Printf("Received a new message: {Sender: %s; Body: %s} from client [%d]\n", msg.sender, msg.body, c.id)
 
+		s.mu.Lock()
 		for _, client := range s.clients {
 			if client.id != c.id {
 				select {
 				case client.messageQueue <- msg:
 				case <-errCh:
+					s.mu.Unlock()
 					return
 				}
-
 			}
 		}
+		s.mu.Unlock()
 	}
 }
 
@@ -136,7 +139,7 @@ func (s *GRPCChatterServer) send(chs proto.GRPCChatter_ChatServer, c *client, er
 		select {
 		case msg := <-c.messageQueue:
 			if err := chs.Send(&proto.ServerMessage{
-				Name: msg.clientName,
+				Name: msg.sender,
 				Body: msg.body,
 			}); err != nil {
 				log.Printf("Failed to send message to client [%d]: %s", c.id, status.Convert(err).Message())
@@ -149,7 +152,16 @@ func (s *GRPCChatterServer) send(chs proto.GRPCChatter_ChatServer, c *client, er
 	}
 }
 
+func (s *GRPCChatterServer) addClient(c *client) {
+	s.mu.Lock()
+	s.clients = append(s.clients, c)
+	s.mu.Unlock()
+}
+
 func (s *GRPCChatterServer) removeClient(id int) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	index := -1
 	for i, c := range s.clients {
 		if c.id == id {
