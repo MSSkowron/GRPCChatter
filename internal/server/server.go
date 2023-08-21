@@ -14,8 +14,9 @@ import (
 )
 
 const (
-	defaultPort    = "5000"
-	defaultAddress = ""
+	defaultPort         = "5000"
+	defaultAddress      = ""
+	maxMessageQueueSize = 255
 )
 
 type GRPCChatterServer struct {
@@ -87,7 +88,7 @@ func (s *GRPCChatterServer) ListenAndServe() error {
 func (s *GRPCChatterServer) Chat(chs proto.GRPCChatter_ChatServer) error {
 	c := &client{
 		id:           rand.Intn(1e6),
-		messageQueue: make(chan message, 255),
+		messageQueue: make(chan message, maxMessageQueueSize),
 	}
 
 	log.Printf("Client [%d] joined the chat\n", c.id)
