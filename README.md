@@ -49,6 +49,11 @@ To start using GRPCChatter, follow these steps to run the server:
     go run ./cmd/grpcchatter/main.go
     ```
 
+    You can use the following flags to configure the server:
+    - **--address**: The address at which the server listens.
+    - **--port**: The port on which the server listens.
+    - **--queue_size**: The maximum message queue size for the server.
+
 ### Using the `GRPCChatter Client` for chatting
 
 Utilize the client code located in `/pkg/client` to initiate conversations and start chatting.
