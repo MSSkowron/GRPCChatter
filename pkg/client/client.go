@@ -18,6 +18,8 @@ var (
 	ErrStreamNotExists = errors.New("stream with the server does not exist")
 	// ErrAlreadyJoined is returned when a client attempts to join the chat server more than once.
 	ErrAlreadyJoined = errors.New("already joined")
+	// ErrConnectionClosed is returned when a connection with sever was closed.
+	ErrConnectionClosed = errors.New("connection closed")
 )
 
 // Client represents a chat client.
@@ -59,14 +61,14 @@ func (c *Client) Join() error {
 
 	conn, err := grpc.Dial(c.serverAddress, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
-		return fmt.Errorf("failed to connect to server: %w", err)
+		return fmt.Errorf("failed to connect to server at %s: %w", c.serverAddress, err)
 	}
 	c.conn = conn
 
 	stream, err := proto.NewGRPCChatterClient(c.conn).Chat(context.Background())
 	if err != nil {
 		c.conn.Close()
-		return fmt.Errorf("failed to create a stream with server: %w", err)
+		return fmt.Errorf("failed to create a stream with server at %s: %w", c.serverAddress, err)
 	}
 	c.stream = stream
 
@@ -121,7 +123,7 @@ func (c *Client) Receive() (Message, error) {
 	case msg := <-c.receiveQueue:
 		return msg, nil
 	case <-c.closeCh:
-		return Message{}, nil
+		return Message{}, ErrConnectionClosed
 	}
 }
 
@@ -151,6 +153,7 @@ func (c *Client) receive() {
 			c.close()
 			return
 		}
+
 		c.receiveQueue <- Message{
 			Sender: msg.Name,
 			Body:   msg.Body,
