@@ -26,13 +26,16 @@ var (
 type Client struct {
 	name          string
 	serverAddress string
-	conn          *grpc.ClientConn
-	stream        proto.GRPCChatter_ChatClient
-	receiveQueue  chan Message
-	sendQueue     chan string
-	closeCh       chan struct{}
-	wg            sync.WaitGroup
-	mu            sync.Mutex
+
+	conn   *grpc.ClientConn
+	stream proto.GRPCChatter_ChatClient
+
+	receiveQueue chan Message
+	sendQueue    chan string
+
+	closeCh chan struct{}
+	wg      sync.WaitGroup
+	mu      sync.Mutex
 }
 
 // Message represents a chat message.
