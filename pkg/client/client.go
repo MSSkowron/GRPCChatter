@@ -2,12 +2,18 @@ package client
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 
 	"github.com/MSSkowron/GRPCChatter/proto/gen/proto"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+)
+
+var (
+	ErrConnectionNotExists = errors.New("connection with the server does not exist")
+	ErrStreamNotExists     = errors.New("stream with the server does not exist")
 )
 
 // Client represents a chat client.
@@ -18,7 +24,6 @@ type Client struct {
 	stream        proto.GRPCChatter_ChatClient
 	receiveQueue  chan Message
 	sendQueue     chan string
-	closeOnce     sync.Once
 	closeCh       chan struct{}
 	wg            sync.WaitGroup
 }
@@ -34,9 +39,6 @@ func NewClient(name string, serverAddress string) (*Client, error) {
 	client := &Client{
 		name:          name,
 		serverAddress: serverAddress,
-		receiveQueue:  make(chan Message),
-		sendQueue:     make(chan string),
-		closeCh:       make(chan struct{}),
 	}
 
 	return client, nil
@@ -52,9 +54,14 @@ func (c *Client) Join() error {
 
 	stream, err := proto.NewGRPCChatterClient(c.conn).Chat(context.Background())
 	if err != nil {
+		c.conn.Close()
 		return fmt.Errorf("failed to create a stream with server: %w", err)
 	}
 	c.stream = stream
+
+	c.receiveQueue = make(chan Message)
+	c.sendQueue = make(chan string)
+	c.closeCh = make(chan struct{})
 
 	c.wg.Add(2)
 	go c.send()
@@ -66,22 +73,40 @@ func (c *Client) Join() error {
 // Send sends a message to the server.
 // It blocks until the message is sent or returns immediately when the stream is closed and returns an empty message.
 // Join() should be called before the first usage.
-func (c *Client) Send(message string) {
+func (c *Client) Send(message string) error {
+	if c.conn == nil {
+		return ErrConnectionNotExists
+	}
+
+	if c.stream == nil {
+		return ErrStreamNotExists
+	}
+
 	select {
 	case c.sendQueue <- message:
 	case <-c.closeCh:
 	}
+
+	return nil
 }
 
 // Receive receives a message from the server.
 // It blocks until a message comes in and returns the incoming message or returns immediately when the stream is closed and returns an empty message.
 // Join() should be called before the first usage.
-func (c *Client) Receive() Message {
+func (c *Client) Receive() (Message, error) {
+	if c.conn == nil {
+		return Message{}, ErrConnectionNotExists
+	}
+
+	if c.stream == nil {
+		return Message{}, ErrStreamNotExists
+	}
+
 	select {
 	case msg := <-c.receiveQueue:
-		return msg
+		return msg, nil
 	case <-c.closeCh:
-		return Message{}
+		return Message{}, nil
 	}
 }
 
@@ -120,9 +145,15 @@ func (c *Client) receive() {
 
 // Close gracefully terminates the client, closing the connection with the server and cleaning up associated resources.
 func (c *Client) Close() {
-	c.closeOnce.Do(func() {
+	if _, ok := <-c.closeCh; ok {
 		close(c.closeCh)
-		c.conn.Close()
 		c.wg.Wait()
-	})
+	}
+
+	if c.conn != nil {
+		c.conn.Close()
+	}
+
+	c.conn = nil
+	c.stream = nil
 }
