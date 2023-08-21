@@ -51,6 +51,20 @@ func NewGRPCChatterServer(opts ...ServerOpt) *GRPCChatterServer {
 	return server
 }
 
+type ServerOpt func(*GRPCChatterServer)
+
+func WithAddress(address string) ServerOpt {
+	return func(s *GRPCChatterServer) {
+		s.address = address
+	}
+}
+
+func WithPort(port string) ServerOpt {
+	return func(s *GRPCChatterServer) {
+		s.port = port
+	}
+}
+
 func (s *GRPCChatterServer) ListenAndServe() error {
 	ln, err := net.Listen("tcp", s.address+":"+s.port)
 	if err != nil {
@@ -175,18 +189,4 @@ func (s *GRPCChatterServer) removeClient(id int) {
 	}
 
 	s.clients = append(s.clients[:index], s.clients[index+1:]...)
-}
-
-type ServerOpt func(*GRPCChatterServer)
-
-func WithAddress(address string) ServerOpt {
-	return func(s *GRPCChatterServer) {
-		s.address = address
-	}
-}
-
-func WithPort(port string) ServerOpt {
-	return func(s *GRPCChatterServer) {
-		s.port = port
-	}
 }
