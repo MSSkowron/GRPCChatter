@@ -18,7 +18,7 @@ var (
 	ErrStreamNotExists = errors.New("stream with the server does not exist")
 	// ErrAlreadyJoined is returned when a client attempts to join the chat server more than once.
 	ErrAlreadyJoined = errors.New("already joined")
-	// ErrConnectionClosed is returned when a connection with sever was closed.
+	// ErrConnectionClosed is returned when a connection with the server has been closed.
 	ErrConnectionClosed = errors.New("connection closed")
 )
 
