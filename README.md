@@ -54,6 +54,12 @@ To start using GRPCChatter, follow these steps to run the server:
     - **--port**: The port on which the server listens.
     - **--queue_size**: The maximum message queue size for the server.
 
+    Example of flags usage:
+
+    ```
+    go run ./cmd/grpcchatter/main.go --address "127.0.0.1" --port 5001 --queue_size 500
+    ```
+
 ### Using the `GRPCChatter Client` for chatting
 
 Utilize the client code located in `/pkg/client` to initiate conversations and start chatting.

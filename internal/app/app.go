@@ -7,12 +7,36 @@ import (
 	"github.com/MSSkowron/GRPCChatter/internal/server"
 )
 
-func Run() error {
-	serverAddress := flag.String("address", server.DefaultAddress, "GRPCChatter server listening address")
-	serverPort := flag.String("port", server.DefaultPort, "GRPCChatter server listening port")
-	serverMaxQueueSize := flag.Int("queue_size", server.DefaultMaxMessageQueueSize, "GRPCChatter server max message queue size")
+// Config holds configuration options for the GRPCChatter server.
+type Config struct {
+	Address             string
+	Port                int
+	MaxMessageQueueSize int
+}
 
-	if err := server.NewGRPCChatterServer(server.WithAddress(*serverAddress), server.WithPort(*serverPort), server.WithMaxMessageQueueSize(*serverMaxQueueSize)).ListenAndServe(); err != nil {
+// ParseConfig parses command line arguments and returns a Config struct.
+func ParseConfig() Config {
+	var config Config
+
+	flag.StringVar(&config.Address, "address", server.DefaultAddress, "GRPCChatter server listening address")
+	flag.IntVar(&config.Port, "port", server.DefaultPort, "GRPCChatter server listening port")
+	flag.IntVar(&config.MaxMessageQueueSize, "queue_size", server.DefaultMaxMessageQueueSize, "GRPCChatter server max message queue size")
+
+	flag.Parse()
+
+	return config
+}
+
+func Run() error {
+	config := ParseConfig()
+
+	server := server.NewGRPCChatterServer(
+		server.WithAddress(config.Address),
+		server.WithPort(config.Port),
+		server.WithMaxMessageQueueSize(config.MaxMessageQueueSize),
+	)
+
+	if err := server.ListenAndServe(); err != nil {
 		return fmt.Errorf("failed to run server: %w", err)
 	}
 

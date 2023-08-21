@@ -5,6 +5,7 @@ import (
 	"log"
 	"math/rand"
 	"net"
+	"strconv"
 	"sync"
 
 	"github.com/MSSkowron/GRPCChatter/proto/gen/proto"
@@ -14,7 +15,7 @@ import (
 )
 
 const (
-	DefaultPort                = "5000"
+	DefaultPort                = 5000
 	DefaultAddress             = ""
 	DefaultMaxMessageQueueSize = 255
 )
@@ -23,7 +24,7 @@ type GRPCChatterServer struct {
 	proto.UnimplementedGRPCChatterServer
 
 	address             string
-	port                string
+	port                int
 	maxMessageQueueSize int
 
 	mu      sync.Mutex
@@ -62,7 +63,7 @@ func WithAddress(address string) ServerOpt {
 	}
 }
 
-func WithPort(port string) ServerOpt {
+func WithPort(port int) ServerOpt {
 	return func(s *GRPCChatterServer) {
 		s.port = port
 	}
@@ -75,19 +76,19 @@ func WithMaxMessageQueueSize(size int) ServerOpt {
 }
 
 func (s *GRPCChatterServer) ListenAndServe() error {
-	ln, err := net.Listen("tcp", s.address+":"+s.port)
+	ln, err := net.Listen("tcp", s.address+":"+strconv.Itoa(s.port))
 	if err != nil {
-		return fmt.Errorf("failed to create tcp listener on %s:%s: %w", s.address, s.port, err)
+		return fmt.Errorf("failed to create tcp listener on %s:%d: %w", s.address, s.port, err)
 	}
 
-	log.Printf("GRPChatter Server is listening on %s:%s\n", s.address, s.port)
+	log.Printf("GRPChatter Server is listening on %s:%d\n", s.address, s.port)
 
 	grpcServer := grpc.NewServer()
 
 	proto.RegisterGRPCChatterServer(grpcServer, s)
 
 	if err := grpcServer.Serve(ln); err != nil {
-		return fmt.Errorf("failed to run grpc server on %s:%s: %w", s.address, s.port, err)
+		return fmt.Errorf("failed to run grpc server on %s:%d: %w", s.address, s.port, err)
 	}
 
 	return nil
