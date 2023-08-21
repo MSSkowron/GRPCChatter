@@ -14,16 +14,17 @@ import (
 )
 
 const (
-	defaultPort         = "5000"
-	defaultAddress      = ""
-	maxMessageQueueSize = 255
+	DefaultPort                = "5000"
+	DefaultAddress             = ""
+	DefaultMaxMessageQueueSize = 255
 )
 
 type GRPCChatterServer struct {
 	proto.UnimplementedGRPCChatterServer
 
-	address string
-	port    string
+	address             string
+	port                string
+	maxMessageQueueSize int
 
 	mu      sync.Mutex
 	clients []*client
@@ -41,8 +42,9 @@ type message struct {
 
 func NewGRPCChatterServer(opts ...ServerOpt) *GRPCChatterServer {
 	server := &GRPCChatterServer{
-		address: defaultAddress,
-		port:    defaultPort,
+		address:             DefaultAddress,
+		port:                DefaultPort,
+		maxMessageQueueSize: DefaultMaxMessageQueueSize,
 	}
 
 	for _, opt := range opts {
@@ -63,6 +65,12 @@ func WithAddress(address string) ServerOpt {
 func WithPort(port string) ServerOpt {
 	return func(s *GRPCChatterServer) {
 		s.port = port
+	}
+}
+
+func WithMaxMessageQueueSize(size int) ServerOpt {
+	return func(s *GRPCChatterServer) {
+		s.maxMessageQueueSize = size
 	}
 }
 
@@ -88,7 +96,7 @@ func (s *GRPCChatterServer) ListenAndServe() error {
 func (s *GRPCChatterServer) Chat(chs proto.GRPCChatter_ChatServer) error {
 	c := &client{
 		id:           rand.Intn(1e6),
-		messageQueue: make(chan message, maxMessageQueueSize),
+		messageQueue: make(chan message, s.maxMessageQueueSize),
 	}
 
 	log.Printf("Client [%d] joined the chat\n", c.id)
