@@ -5,6 +5,7 @@ import (
 	"log"
 	"math/rand"
 	"net"
+	"sync"
 
 	"github.com/MSSkowron/GRPCChatter/proto/gen/proto"
 	"google.golang.org/grpc"
@@ -78,19 +79,23 @@ func (s *GRPCChatterServer) Chat(chs proto.GRPCChatter_ChatServer) error {
 
 	s.clients = append(s.clients, c)
 
+	wg := &sync.WaitGroup{}
+	wg.Add(2)
+
 	errCh := make(chan error)
+	go s.receive(chs, c, errCh, wg)
+	go s.send(chs, c, errCh, wg)
 
-	go s.receive(chs, c, errCh)
-	go s.send(chs, c, errCh)
-
-	<-errCh
+	wg.Wait()
 
 	s.removeClient(c.id)
 
 	return nil
 }
 
-func (s *GRPCChatterServer) receive(chs proto.GRPCChatter_ChatServer, c *client, errCh chan<- error) {
+func (s *GRPCChatterServer) receive(chs proto.GRPCChatter_ChatServer, c *client, errCh chan error, wg *sync.WaitGroup) {
+	defer wg.Done()
+
 	for {
 		mssg, err := chs.Recv()
 		if err != nil {
@@ -113,21 +118,32 @@ func (s *GRPCChatterServer) receive(chs proto.GRPCChatter_ChatServer, c *client,
 
 		for _, client := range s.clients {
 			if client.id != c.id {
-				client.messageQueue <- msg
+				select {
+				case client.messageQueue <- msg:
+				case <-errCh:
+					return
+				}
+
 			}
 		}
 	}
 }
 
-func (s *GRPCChatterServer) send(chs proto.GRPCChatter_ChatServer, c *client, errCh chan<- error) {
+func (s *GRPCChatterServer) send(chs proto.GRPCChatter_ChatServer, c *client, errCh chan error, wg *sync.WaitGroup) {
+	defer wg.Done()
+
 	for {
-		msg := <-c.messageQueue
-		if err := chs.Send(&proto.ServerMessage{
-			Name: msg.clientName,
-			Body: msg.body,
-		}); err != nil {
-			log.Printf("Failed to send message to client [%d]: %s", c.id, status.Convert(err).Message())
-			errCh <- err
+		select {
+		case msg := <-c.messageQueue:
+			if err := chs.Send(&proto.ServerMessage{
+				Name: msg.clientName,
+				Body: msg.body,
+			}); err != nil {
+				log.Printf("Failed to send message to client [%d]: %s", c.id, status.Convert(err).Message())
+				errCh <- err
+				return
+			}
+		case <-errCh:
 			return
 		}
 	}
