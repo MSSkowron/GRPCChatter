@@ -8,6 +8,8 @@ import (
 
 	"github.com/MSSkowron/GRPCChatter/proto/gen/proto"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 const (
@@ -53,7 +55,7 @@ func (s *GRPCChatterServer) ListenAndServe() error {
 		return fmt.Errorf("failed to create tcp listener on %s:%s: %w", s.address, s.port, err)
 	}
 
-	log.Printf("Listening on %s:%s\n", s.address, s.port)
+	log.Printf("GRPChatter Server is listening on %s:%s\n", s.address, s.port)
 
 	grpcServer := grpc.NewServer()
 
@@ -72,7 +74,7 @@ func (s *GRPCChatterServer) Chat(chs proto.GRPCChatter_ChatServer) error {
 		messageQueue: make(chan message, 255),
 	}
 
-	fmt.Println("New client joined the chat!")
+	log.Printf("Client [%d] joined the chat\n", c.id)
 
 	s.clients = append(s.clients, c)
 
@@ -92,7 +94,12 @@ func (s *GRPCChatterServer) receive(chs proto.GRPCChatter_ChatServer, c *client,
 	for {
 		mssg, err := chs.Recv()
 		if err != nil {
-			log.Printf("Failed to receive message from client %d: %s", c.id, err)
+			if status.Code(err) == codes.Canceled {
+				log.Printf("Client [%d] left the chat\n", c.id)
+			} else {
+				log.Printf("Failed to receive message from client %d: %s\n", c.id, status.Convert(err).Message())
+			}
+
 			errCh <- err
 			return
 		}
@@ -102,7 +109,7 @@ func (s *GRPCChatterServer) receive(chs proto.GRPCChatter_ChatServer, c *client,
 			body:       mssg.Body,
 		}
 
-		log.Printf("Received a new message: %v", msg)
+		log.Printf("Received a new message: {Sender: %s; Body: %s} from client [%d]\n", msg.clientName, msg.body, c.id)
 
 		for _, client := range s.clients {
 			if client.id != c.id {
@@ -119,7 +126,7 @@ func (s *GRPCChatterServer) send(chs proto.GRPCChatter_ChatServer, c *client, er
 			Name: msg.clientName,
 			Body: msg.body,
 		}); err != nil {
-			log.Printf("Failed to send message to client %d: %s", c.id, err)
+			log.Printf("Failed to send message to client [%d]: %s", c.id, status.Convert(err).Message())
 			errCh <- err
 			return
 		}
