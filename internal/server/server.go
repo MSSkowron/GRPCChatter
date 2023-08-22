@@ -107,71 +107,79 @@ func (s *GRPCChatterServer) Chat(chs proto.GRPCChatter_ChatServer) error {
 	wg := &sync.WaitGroup{}
 	wg.Add(2)
 
-	stopCh := make(chan struct{})
-	go s.receive(chs, c, stopCh, wg)
-	go s.send(chs, c, stopCh, wg)
+	receiveCh := make(chan struct{}, 1)
+	sendCh := make(chan struct{}, 1)
+
+	go s.receive(chs, c, sendCh, receiveCh, wg)
+	go s.send(chs, c, receiveCh, sendCh, wg)
 
 	wg.Wait()
+
+	close(receiveCh)
+	close(sendCh)
 
 	s.removeClient(c.id)
 
 	return nil
 }
 
-func (s *GRPCChatterServer) receive(chs proto.GRPCChatter_ChatServer, c *client, stopCh chan struct{}, wg *sync.WaitGroup) {
-	defer wg.Done()
-
-	for {
-		mssg, err := chs.Recv()
-		if err != nil {
-			if status.Code(err) == codes.Canceled {
-				log.Printf("Client [%d] left the chat\n", c.id)
-			} else {
-				log.Printf("Failed to receive message from client %d: %s\n", c.id, status.Convert(err).Message())
-			}
-
-			stopCh <- struct{}{}
-			return
-		}
-
-		msg := message{
-			sender: mssg.Name,
-			body:   mssg.Body,
-		}
-
-		log.Printf("Received a new message: {Sender: %s; Body: %s} from client [%d]\n", msg.sender, msg.body, c.id)
-
-		s.mu.Lock()
-		for _, client := range s.clients {
-			if client.id != c.id {
-				select {
-				case client.messageQueue <- msg:
-				case <-stopCh:
-					s.mu.Unlock()
-					return
-				}
-			}
-		}
-		s.mu.Unlock()
-	}
-}
-
-func (s *GRPCChatterServer) send(chs proto.GRPCChatter_ChatServer, c *client, stopCh chan struct{}, wg *sync.WaitGroup) {
+func (s *GRPCChatterServer) receive(chs proto.GRPCChatter_ChatServer, c *client, sendStopCh chan<- struct{}, receiveStopCh <-chan struct{}, wg *sync.WaitGroup) {
 	defer wg.Done()
 
 	for {
 		select {
+		case <-receiveStopCh:
+			return
+		default:
+			mssg, err := chs.Recv()
+			if err != nil {
+				if status.Code(err) == codes.Canceled {
+					log.Printf("Client [%d] left the chat\n", c.id)
+				} else {
+					log.Printf("Failed to receive message from client %d: %s\n", c.id, status.Convert(err).Message())
+				}
+
+				sendStopCh <- struct{}{}
+
+				return
+			}
+
+			msg := message{
+				sender: mssg.Name,
+				body:   mssg.Body,
+			}
+
+			log.Printf("Received a new message: {Sender: %s; Body: %s} from client [%d]\n", msg.sender, msg.body, c.id)
+
+			s.mu.Lock()
+			for _, client := range s.clients {
+				if client.id != c.id {
+					client.messageQueue <- msg
+				}
+			}
+			s.mu.Unlock()
+		}
+	}
+}
+
+func (s *GRPCChatterServer) send(chs proto.GRPCChatter_ChatServer, c *client, sendStopCh chan<- struct{}, receiveStopCh <-chan struct{}, wg *sync.WaitGroup) {
+	defer wg.Done()
+
+	for {
+		select {
+		case <-receiveStopCh:
+			return
 		case msg := <-c.messageQueue:
 			if err := chs.Send(&proto.ServerMessage{
 				Name: msg.sender,
 				Body: msg.body,
 			}); err != nil {
 				log.Printf("Failed to send message to client [%d]: %s", c.id, status.Convert(err).Message())
-				stopCh <- struct{}{}
+
+				sendStopCh <- struct{}{}
+
 				return
 			}
-		case <-stopCh:
-			return
 		}
 	}
 }
