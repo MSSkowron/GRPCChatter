@@ -52,7 +52,7 @@ To start using GRPCChatter, follow these steps to run the server:
     You can use the following flags to configure the server:
     - **--address**: The address at which the server listens.
     - **--port**: The port on which the server listens.
-    - **--queue_size**: The maximum message queue size for the server.
+    - **--queue_size**: The maximum size of the message queue that is used to store messages to be sent to clients.
 
     Example of flags usage:
 
