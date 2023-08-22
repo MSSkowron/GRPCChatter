@@ -15,11 +15,15 @@ import (
 )
 
 const (
-	DefaultPort                = 5000
-	DefaultAddress             = ""
+	// DefaultPort is the default port the server listens on.
+	DefaultPort = 5000
+	// DefaultAddress is the default address the server listens on.
+	DefaultAddress = ""
+	// DefaultMaxMessageQueueSize is the default max size of the message queue that is used to store messages to be sent to clients.
 	DefaultMaxMessageQueueSize = 255
 )
 
+// GRPCChatterServer represents a GRPCChatter server.
 type GRPCChatterServer struct {
 	proto.UnimplementedGRPCChatterServer
 
@@ -41,7 +45,8 @@ type message struct {
 	body   string
 }
 
-func NewGRPCChatterServer(opts ...ServerOpt) *GRPCChatterServer {
+// NewGRPCChatterServer creates a new GRPCChatter server.
+func NewGRPCChatterServer(opts ...Opt) *GRPCChatterServer {
 	server := &GRPCChatterServer{
 		address:             DefaultAddress,
 		port:                DefaultPort,
@@ -55,26 +60,31 @@ func NewGRPCChatterServer(opts ...ServerOpt) *GRPCChatterServer {
 	return server
 }
 
-type ServerOpt func(*GRPCChatterServer)
+// Opt represents an option that can be passed to NewGRPCChatterServer.
+type Opt func(*GRPCChatterServer)
 
-func WithAddress(address string) ServerOpt {
+// WithAddress sets the address the server listens on.
+func WithAddress(address string) Opt {
 	return func(s *GRPCChatterServer) {
 		s.address = address
 	}
 }
 
-func WithPort(port int) ServerOpt {
+// WithPort sets the port the server listens on.
+func WithPort(port int) Opt {
 	return func(s *GRPCChatterServer) {
 		s.port = port
 	}
 }
 
-func WithMaxMessageQueueSize(size int) ServerOpt {
+// WithMaxMessageQueueSize sets the max size of the message queue that is used to send messages to clients.
+func WithMaxMessageQueueSize(size int) Opt {
 	return func(s *GRPCChatterServer) {
 		s.maxMessageQueueSize = size
 	}
 }
 
+// ListenAndServe starts the server and listens for incoming connections.
 func (s *GRPCChatterServer) ListenAndServe() error {
 	ln, err := net.Listen("tcp", s.address+":"+strconv.Itoa(s.port))
 	if err != nil {
@@ -94,6 +104,7 @@ func (s *GRPCChatterServer) ListenAndServe() error {
 	return nil
 }
 
+// Chat is a server-side streaming RPC handler that receives messages from clients and broadcasts them to all other clients.
 func (s *GRPCChatterServer) Chat(chs proto.GRPCChatter_ChatServer) error {
 	c := &client{
 		id:           rand.Intn(1e6),
