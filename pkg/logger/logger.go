@@ -22,6 +22,6 @@ func Debug(msg string) {
 }
 
 // Error logs the provided message at [ErrorLevel].
-func Errorf(msg string) {
+func Error(msg string) {
 	logger.Error(msg)
 }

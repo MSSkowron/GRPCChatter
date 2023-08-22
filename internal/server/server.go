@@ -2,12 +2,12 @@ package server
 
 import (
 	"fmt"
-	"log"
 	"math/rand"
 	"net"
 	"strconv"
 	"sync"
 
+	"github.com/MSSkowron/GRPCChatter/pkg/logger"
 	"github.com/MSSkowron/GRPCChatter/proto/gen/proto"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -91,7 +91,7 @@ func (s *GRPCChatterServer) ListenAndServe() error {
 		return fmt.Errorf("failed to create tcp listener on %s:%d: %w", s.address, s.port, err)
 	}
 
-	log.Printf("GRPChatter Server is listening on %s:%d\n", s.address, s.port)
+	logger.Info(fmt.Sprintf("Server started listening on %s:%d", s.address, s.port))
 
 	grpcServer := grpc.NewServer()
 
@@ -111,7 +111,7 @@ func (s *GRPCChatterServer) Chat(chs proto.GRPCChatter_ChatServer) error {
 		messageQueue: make(chan message, s.maxMessageQueueSize),
 	}
 
-	log.Printf("Client [%d] joined the chat\n", c.id)
+	logger.Info(fmt.Sprintf("Client [ID: %d] joined the chat", c.id))
 
 	s.addClient(c)
 
@@ -145,9 +145,9 @@ func (s *GRPCChatterServer) receive(chs proto.GRPCChatter_ChatServer, c *client,
 			mssg, err := chs.Recv()
 			if err != nil {
 				if status.Code(err) == codes.Canceled {
-					log.Printf("Client [%d] left the chat\n", c.id)
+					logger.Info(fmt.Sprintf("Client [ID: %d] left the chat", c.id))
 				} else {
-					log.Printf("Failed to receive message from client %d: %s\n", c.id, status.Convert(err).Message())
+					logger.Error(fmt.Sprintf("Failed to receive message from client [ID: %d]: %s", c.id, status.Convert(err).Message()))
 				}
 
 				sendStopCh <- struct{}{}
@@ -160,7 +160,7 @@ func (s *GRPCChatterServer) receive(chs proto.GRPCChatter_ChatServer, c *client,
 				body:   mssg.Body,
 			}
 
-			log.Printf("Received a new message: {Sender: %s; Body: %s} from client [%d]\n", msg.sender, msg.body, c.id)
+			logger.Info(fmt.Sprintf("Received message: {Sender: %s; Body: %s} from client [ID: %d]", msg.sender, msg.body, c.id))
 
 			s.mu.Lock()
 			for _, client := range s.clients {
@@ -185,12 +185,14 @@ func (s *GRPCChatterServer) send(chs proto.GRPCChatter_ChatServer, c *client, se
 				Name: msg.sender,
 				Body: msg.body,
 			}); err != nil {
-				log.Printf("Failed to send message to client [%d]: %s", c.id, status.Convert(err).Message())
+				logger.Error(fmt.Sprintf("Failed to send message to client [ID: %d]: %s", c.id, status.Convert(err).Message()))
 
 				sendStopCh <- struct{}{}
 
 				return
 			}
+
+			logger.Info(fmt.Sprintf("Sent message: {Sender: %s; Body: %s} to client [ID: %d]", msg.sender, msg.body, c.id))
 		}
 	}
 }
@@ -199,6 +201,8 @@ func (s *GRPCChatterServer) addClient(c *client) {
 	s.mu.Lock()
 	s.clients = append(s.clients, c)
 	s.mu.Unlock()
+
+	logger.Debug(fmt.Sprintf("Added client [ID: %d] to server client's list", c.id))
 }
 
 func (s *GRPCChatterServer) removeClient(id int) {
@@ -208,7 +212,12 @@ func (s *GRPCChatterServer) removeClient(id int) {
 	for i, c := range s.clients {
 		if c.id == id {
 			s.clients = append(s.clients[:i], s.clients[i+1:]...)
+
+			logger.Debug(fmt.Sprintf("Removed client [ID: %d] from server client's list", id))
+
 			break
 		}
 	}
+
+	logger.Debug(fmt.Sprintf("Client [ID: %d] was not found in the server's client list and was not removed", id))
 }
