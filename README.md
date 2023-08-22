@@ -63,7 +63,13 @@ To start using GRPCChatter, follow these steps to run the server:
 ### Using the `GRPCChatter Client` for chatting
 
 Utilize the client code located in `/pkg/client` to initiate conversations and start chatting.
+
+## Example
+
 An example client's code is provided [**here**](./examples/client_cli/main.go).
+This example demonstrates the usage of the client package.
+
+![Example](./docs/examples_client_cli.png)
 
 ## License
 
