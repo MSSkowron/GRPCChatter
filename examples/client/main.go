@@ -33,20 +33,24 @@ func main() {
 	wg := &sync.WaitGroup{}
 	wg.Add(2)
 
-	stopCh := make(chan struct{})
+	receiveCh := make(chan struct{}, 1)
+	sendCh := make(chan struct{}, 1)
 
-	go receiveAndPrintMessages(c, stopCh, wg)
-	go readAndSendMessage(c, stopCh, wg)
+	go receiveAndPrintMessages(c, sendCh, receiveCh, wg)
+	go readAndSendMessage(c, receiveCh, sendCh, wg)
 
 	wg.Wait()
+
+	close(receiveCh)
+	close(sendCh)
 }
 
-func receiveAndPrintMessages(c *client.Client, stopCh chan struct{}, wg *sync.WaitGroup) {
+func receiveAndPrintMessages(c *client.Client, sendStopCh chan<- struct{}, receiveStopCh <-chan struct{}, wg *sync.WaitGroup) {
 	defer wg.Done()
 
 	for {
 		select {
-		case <-stopCh:
+		case <-receiveStopCh:
 			return
 		default:
 			msg, err := c.Receive()
@@ -57,12 +61,9 @@ func receiveAndPrintMessages(c *client.Client, stopCh chan struct{}, wg *sync.Wa
 					log.Printf("Error receiving message: %s\n", err)
 				}
 
-				select {
-				case <-stopCh:
-					return
-				case stopCh <- struct{}{}:
-					return
-				}
+				sendStopCh <- struct{}{}
+
+				return
 			}
 
 			fmt.Printf("[%s]: %s\n", msg.Sender, msg.Body)
@@ -70,12 +71,12 @@ func receiveAndPrintMessages(c *client.Client, stopCh chan struct{}, wg *sync.Wa
 	}
 }
 
-func readAndSendMessage(c *client.Client, stopCh chan struct{}, wg *sync.WaitGroup) {
+func readAndSendMessage(c *client.Client, sendStopCh chan<- struct{}, receiveStopCh <-chan struct{}, wg *sync.WaitGroup) {
 	defer wg.Done()
 
 	for {
 		select {
-		case <-stopCh:
+		case <-receiveStopCh:
 			return
 		default:
 			if err := c.Send("hello"); err != nil {
@@ -85,12 +86,9 @@ func readAndSendMessage(c *client.Client, stopCh chan struct{}, wg *sync.WaitGro
 					log.Printf("Error sending message: %s\n", err)
 				}
 
-				select {
-				case <-stopCh:
-					return
-				case stopCh <- struct{}{}:
-					return
-				}
+				sendStopCh <- struct{}{}
+
+				return
 			}
 		}
 	}
