@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 	"sync"
 
 	"github.com/MSSkowron/GRPCChatter/pkg/client"
@@ -16,18 +17,19 @@ const (
 )
 
 func main() {
-	fmt.Print("Enter your username: ")
-	scanner := bufio.NewScanner(os.Stdin)
-	if !scanner.Scan() {
-		os.Exit(1)
+	reader := bufio.NewReader(os.Stdin)
+	fmt.Printf("Enter username: ")
+	username, err := reader.ReadString('\n')
+	if err != nil {
+		log.Fatalf("Failed to read username from console: %s", err)
 	}
-	username := scanner.Text()
+	username = strings.Trim(username, "\r\n")
 
 	c := client.NewClient(username, serverAddress)
 	defer c.Close()
 
 	if err := c.Join(); err != nil {
-		log.Fatalf("Failed to join the chat: %v", err)
+		log.Fatalf("Failed to join the chat: %s", err)
 	}
 
 	wg := &sync.WaitGroup{}
@@ -43,6 +45,8 @@ func main() {
 
 	close(receiveCh)
 	close(sendCh)
+
+	os.Exit(0)
 }
 
 func receiveAndPrintMessages(c *client.Client, sendStopCh chan<- struct{}, receiveStopCh <-chan struct{}, wg *sync.WaitGroup) {
@@ -56,9 +60,9 @@ func receiveAndPrintMessages(c *client.Client, sendStopCh chan<- struct{}, recei
 			msg, err := c.Receive()
 			if err != nil {
 				if errors.Is(err, client.ErrConnectionClosed) || errors.Is(err, client.ErrConnectionNotExists) || errors.Is(err, client.ErrStreamNotExists) {
-					log.Println("Error receiving message: lost connection with the server")
+					log.Println("Failed to receive message: lost connection with the server")
 				} else {
-					log.Printf("Error receiving message: %s\n", err)
+					log.Printf("Failed to receive message: %s\n", err)
 				}
 
 				sendStopCh <- struct{}{}
@@ -79,11 +83,22 @@ func readAndSendMessage(c *client.Client, sendStopCh chan<- struct{}, receiveSto
 		case <-receiveStopCh:
 			return
 		default:
-			if err := c.Send("hello"); err != nil {
+			reader := bufio.NewReader(os.Stdin)
+			msg, err := reader.ReadString('\n')
+			if err != nil {
+				log.Printf(" Failed to read message from console: %s\n", err)
+
+				sendStopCh <- struct{}{}
+
+				return
+			}
+			msg = strings.Trim(msg, "\r\n")
+
+			if err := c.Send(msg); err != nil {
 				if errors.Is(err, client.ErrConnectionClosed) || errors.Is(err, client.ErrConnectionNotExists) || errors.Is(err, client.ErrStreamNotExists) {
-					log.Println("Error sending message: lost connection with the server")
+					log.Println("Failed to send message: lost connection with the server")
 				} else {
-					log.Printf("Error sending message: %s\n", err)
+					log.Printf("Failed to send message: %s\n", err)
 				}
 
 				sendStopCh <- struct{}{}
