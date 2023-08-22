@@ -107,9 +107,9 @@ func (s *GRPCChatterServer) Chat(chs proto.GRPCChatter_ChatServer) error {
 	wg := &sync.WaitGroup{}
 	wg.Add(2)
 
-	errCh := make(chan error)
-	go s.receive(chs, c, errCh, wg)
-	go s.send(chs, c, errCh, wg)
+	stopCh := make(chan struct{})
+	go s.receive(chs, c, stopCh, wg)
+	go s.send(chs, c, stopCh, wg)
 
 	wg.Wait()
 
@@ -118,7 +118,7 @@ func (s *GRPCChatterServer) Chat(chs proto.GRPCChatter_ChatServer) error {
 	return nil
 }
 
-func (s *GRPCChatterServer) receive(chs proto.GRPCChatter_ChatServer, c *client, errCh chan error, wg *sync.WaitGroup) {
+func (s *GRPCChatterServer) receive(chs proto.GRPCChatter_ChatServer, c *client, stopCh chan struct{}, wg *sync.WaitGroup) {
 	defer wg.Done()
 
 	for {
@@ -130,7 +130,7 @@ func (s *GRPCChatterServer) receive(chs proto.GRPCChatter_ChatServer, c *client,
 				log.Printf("Failed to receive message from client %d: %s\n", c.id, status.Convert(err).Message())
 			}
 
-			errCh <- err
+			stopCh <- struct{}{}
 			return
 		}
 
@@ -146,7 +146,7 @@ func (s *GRPCChatterServer) receive(chs proto.GRPCChatter_ChatServer, c *client,
 			if client.id != c.id {
 				select {
 				case client.messageQueue <- msg:
-				case <-errCh:
+				case <-stopCh:
 					s.mu.Unlock()
 					return
 				}
@@ -156,7 +156,7 @@ func (s *GRPCChatterServer) receive(chs proto.GRPCChatter_ChatServer, c *client,
 	}
 }
 
-func (s *GRPCChatterServer) send(chs proto.GRPCChatter_ChatServer, c *client, errCh chan error, wg *sync.WaitGroup) {
+func (s *GRPCChatterServer) send(chs proto.GRPCChatter_ChatServer, c *client, stopCh chan struct{}, wg *sync.WaitGroup) {
 	defer wg.Done()
 
 	for {
@@ -167,10 +167,10 @@ func (s *GRPCChatterServer) send(chs proto.GRPCChatter_ChatServer, c *client, er
 				Body: msg.body,
 			}); err != nil {
 				log.Printf("Failed to send message to client [%d]: %s", c.id, status.Convert(err).Message())
-				errCh <- err
+				stopCh <- struct{}{}
 				return
 			}
-		case <-errCh:
+		case <-stopCh:
 			return
 		}
 	}

@@ -103,6 +103,7 @@ func (c *Client) Send(message string) error {
 	select {
 	case c.sendQueue <- message:
 	case <-c.closeCh:
+		return ErrConnectionClosed
 	}
 
 	return nil
