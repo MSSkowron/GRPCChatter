@@ -18,9 +18,9 @@ var (
 	// ErrStreamNotExists is returned when attempting an operation on a non-existent server stream.
 	ErrStreamNotExists = errors.New("stream with the server does not exist")
 	// ErrAlreadyJoined is returned when a client attempts to join the chat server more than once.
-	ErrAlreadyJoined = errors.New("already joined")
+	ErrAlreadyJoined = errors.New("client is already joined to a chat room")
 	// ErrConnectionClosed is returned when a connection with the server has been closed.
-	ErrConnectionClosed = errors.New("connection closed")
+	ErrConnectionClosed = errors.New("connection with the server has been closed")
 )
 
 // Client represents a chat client.
@@ -41,11 +41,11 @@ type Client struct {
 
 // Message represents an incoming chat message.
 type Message struct {
-	Sender string
-	Body   string
+	Sender string // Sender is the name of the user who sent the message.
+	Body   string // Body contains the content of the chat message.
 }
 
-// NewClient creates a new chat client.
+// NewClient creates a new chat client with the given name and server address.
 func NewClient(name string, serverAddress string) *Client {
 	return &Client{
 		name:          name,
@@ -53,6 +53,9 @@ func NewClient(name string, serverAddress string) *Client {
 	}
 }
 
+// CreateChatRoom creates a new chat room with the provided name and password.
+// If the client is not already connected to a chat room, it establishes a connection and then sends a request to create the chat room.
+// Upon successful creation, it returns the shortcode of the newly created chat room.
 func (c *Client) CreateChatRoom(roomName, roomPassword string) (string, error) {
 	if c.conn == nil {
 		if err := c.connect(); err != nil {
@@ -71,8 +74,11 @@ func (c *Client) CreateChatRoom(roomName, roomPassword string) (string, error) {
 	return resp.GetShortCode(), nil
 }
 
-// Join connects the client to the server, initializes message channels, and starts receiving and sending messages.
-// Returns ErrAlreadyJoined when a connection with the server has already been established.
+// JoinChatRoom connects the client to a specific chat room, enabling message reception and transmission.
+// It first checks if the client is already connected to a chat room and returns ErrAlreadyJoined if so.
+// If the client is not connected, it establishes a connection, joins the chat room, and sets up a bidirectional stream for communication.
+// It then initializes channels for sending and receiving messages.
+// Returns ErrAlreadyJoined if the client is already connected to a chat room. To leave the current chat room, use the Disconnect method.
 func (c *Client) JoinChatRoom(shortCode string, password string) error {
 	if c.stream != nil {
 		return ErrAlreadyJoined
@@ -119,7 +125,7 @@ func (c *Client) JoinChatRoom(shortCode string, password string) error {
 
 // Send sends a message to the server.
 // It blocks until the message is sent or returns immediately when the stream is closed, and the message is discarded.
-// The Join() method must be called before the first usage.
+// The JoinChatRoom() method must be called before the first usage.
 func (c *Client) Send(message string) error {
 	if c.conn == nil {
 		return ErrConnectionNotExists
@@ -141,6 +147,7 @@ func (c *Client) Send(message string) error {
 // Receive receives a message from the server.
 // It blocks until a message arrives or returns immediately when the stream is closed, returning an empty message.
 // The Join() method must be called before the first usage.
+// Returns ErrConnectionClosed if the client is not connected or ErrStreamNotExists if the stream is not established.
 func (c *Client) Receive() (Message, error) {
 	if c.conn == nil {
 		return Message{}, ErrConnectionNotExists
@@ -223,7 +230,7 @@ func (c *Client) close() {
 	c.stream = nil
 }
 
-// Disconnect gracefully disconnects the client from the server, closing the connection with the server and cleaning up associated resources.
+// Disconnect gracefully disconnects the client from the server, closing the connection with the server.
 func (c *Client) Disconnect() {
 	c.close()
 	c.wg.Wait()
