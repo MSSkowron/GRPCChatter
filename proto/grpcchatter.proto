@@ -23,8 +23,7 @@ message JoinChatRoomResponse {
 }
 
 message ClientMessage {
-    string name = 1;
-    string body = 2;
+    string body = 1;
 }
 
 message ServerMessage {
