@@ -27,7 +27,7 @@ Make sure you have Go 1.21 or a compatible version installed.
 
 ## Getting Started
 
-### Installation and Running the `GRPCChatter Server`
+### Installation and Running the GRPCChatter Server
 
 To start using GRPCChatter, follow these steps to run the server:
 
@@ -60,9 +60,32 @@ To start using GRPCChatter, follow these steps to run the server:
     go run ./cmd/grpcchatter/main.go --address "127.0.0.1" --port 5001 --queue_size 500
     ```
 
-### Using the `GRPCChatter Client` for chatting
+### GRPCChatter Server
+ 
+The Server is the core component of the GRPCChatter application, responsible for handling various gRPC methods. Below are the methods supported by the server, along with their descriptions:
 
-To interact with the server, utilize the client package located in `/pkg/client`.
+- **CreateChatRoom**: Allows clients to create a new chat room with a specified name and password. Upon successful creation, it returns a short code that can be used to join the room later.
+
+- **JoinChatRoom**:  Allows clients to join an existing chat room by providing the short code of the room and the associated password. Upon successful authentication, it returns a token that can be used for communication within the room.
+
+- **Chat**: Establishes a bidirectional streaming connection for real-time chat. Clients can send messages to the server using the ClientMessage type, and the server responds with incoming messages in the ServerMessage format. This method allows for continuous communication between clients and the server. It requires three gRPC headers attached:
+  - userName
+  - shortCode
+  - token
+
+### GRPCChatter Client
+
+The GRPCChatter Client is responsible for managing the client-side logic of the GRPCChatter application. It provides methods for creating chat rooms, joining chat rooms, sending messages, and receiving messages from the server. Client package is located in `/pkg/client`. Below are the methods supported by the client, along with their descriptions:
+
+- **CreateChatRoom**: Creates a new chat room with the provided name and password. Upon successful creation, it returns the shortcode of the newly created chat room.
+
+- **JoinChatRoom**: Connects the client to a specific chat room, enabling message reception and transmission. If the client is not connected, it establishes a connection, joins the chat room, and sets up a bidirectional stream for communication.
+
+- **Send**: Sends a message to the server. It blocks until the message is sent or returns immediately if an error occurred. The JoinChatRoom method must be called before the first usage.
+
+- **Receive**: Receives a message from the server. It blocks until a message arrives or returns immediately if an error occurred. The JoinChatRoom method must be called before the first usage.
+
+- **Disconnect**: Disconnects the client from the server, closing the connection with the server.
 
 ## Example
 
