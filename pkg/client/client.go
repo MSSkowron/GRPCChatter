@@ -28,21 +28,21 @@ type Client struct {
 	name          string
 	serverAddress string
 
-	conn   *grpc.ClientConn
-	stream proto.GRPCChatter_ChatClient
+	conn       *grpc.ClientConn
+	grpcClient proto.GRPCChatterClient
+	stream     proto.GRPCChatter_ChatClient
 
 	receiveQueue chan Message
 	sendQueue    chan string
 
 	closeCh chan struct{}
 	wg      sync.WaitGroup
-	mu      sync.Mutex
 }
 
-// Message represents a chat message.
+// Message represents an incoming chat message.
 type Message struct {
-	Sender string // The sender's name.
-	Body   string // The message content.
+	Sender string
+	Body   string
 }
 
 // NewClient creates a new chat client.
@@ -53,33 +53,52 @@ func NewClient(name string, serverAddress string) *Client {
 	}
 }
 
+func (c *Client) CreateChatRoom(roomName, roomPassword string) (string, error) {
+	if c.conn == nil {
+		if err := c.connect(); err != nil {
+			return "", err
+		}
+	}
+
+	resp, err := c.grpcClient.CreateChatRoom(context.Background(), &proto.CreateChatRoomRequest{
+		RoomName:     roomName,
+		RoomPassword: roomPassword,
+	})
+	if err != nil {
+		return "", fmt.Errorf("failed to create chat room: %w", err)
+	}
+
+	return resp.GetShortCode(), nil
+}
+
 // Join connects the client to the server, initializes message channels, and starts receiving and sending messages.
 // Returns ErrAlreadyJoined when a connection with the server has already been established.
-func (c *Client) Join(shortCode string, password string) error {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
-	if c.conn != nil || c.stream != nil {
+func (c *Client) JoinChatRoom(shortCode string, password string) error {
+	if c.stream != nil {
 		return ErrAlreadyJoined
 	}
 
-	conn, err := grpc.Dial(c.serverAddress, grpc.WithTransportCredentials(insecure.NewCredentials()))
-	if err != nil {
-		return fmt.Errorf("failed to connect to server at %s: %w", c.serverAddress, err)
+	if c.conn == nil {
+		if err := c.connect(); err != nil {
+			return err
+		}
 	}
-	c.conn = conn
 
-	// TODO: Call RPC JoinChatRoom using shortCode and password. In return we get accessToken.
-	// For now let's create example variables.
-	token := "tokentokentokentokentokentoken"
+	resp, err := c.grpcClient.JoinChatRoom(context.Background(), &proto.JoinChatRoomRequest{
+		ShortCode:    shortCode,
+		RoomPassword: password,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to join the chat room: %w", err)
+	}
 
 	md := metadata.New(map[string]string{
 		"userName":  c.name,
 		"shortCode": shortCode,
-		"token":     token,
+		"token":     resp.GetToken(),
 	})
 	ctx := metadata.NewOutgoingContext(context.Background(), md)
-	stream, err := proto.NewGRPCChatterClient(c.conn).Chat(ctx)
+	stream, err := c.grpcClient.Chat(ctx)
 	if err != nil {
 		c.conn.Close()
 		return fmt.Errorf("failed to create a stream with server at %s: %w", c.serverAddress, err)
@@ -88,6 +107,7 @@ func (c *Client) Join(shortCode string, password string) error {
 
 	c.receiveQueue = make(chan Message)
 	c.sendQueue = make(chan string)
+
 	c.closeCh = make(chan struct{})
 
 	c.wg.Add(2)
@@ -101,7 +121,6 @@ func (c *Client) Join(shortCode string, password string) error {
 // It blocks until the message is sent or returns immediately when the stream is closed, and the message is discarded.
 // The Join() method must be called before the first usage.
 func (c *Client) Send(message string) error {
-	c.mu.Lock()
 	if c.conn == nil {
 		return ErrConnectionNotExists
 	}
@@ -109,7 +128,6 @@ func (c *Client) Send(message string) error {
 	if c.stream == nil {
 		return ErrStreamNotExists
 	}
-	c.mu.Unlock()
 
 	select {
 	case c.sendQueue <- message:
@@ -124,7 +142,6 @@ func (c *Client) Send(message string) error {
 // It blocks until a message arrives or returns immediately when the stream is closed, returning an empty message.
 // The Join() method must be called before the first usage.
 func (c *Client) Receive() (Message, error) {
-	c.mu.Lock()
 	if c.conn == nil {
 		return Message{}, ErrConnectionNotExists
 	}
@@ -132,7 +149,6 @@ func (c *Client) Receive() (Message, error) {
 	if c.stream == nil {
 		return Message{}, ErrStreamNotExists
 	}
-	c.mu.Unlock()
 
 	select {
 	case msg := <-c.receiveQueue:
@@ -147,10 +163,7 @@ func (c *Client) send() {
 	for {
 		select {
 		case msg := <-c.sendQueue:
-			if err := c.stream.Send(&proto.ClientMessage{
-				Name: c.name,
-				Body: msg,
-			}); err != nil {
+			if err := c.stream.Send(&proto.ClientMessage{Body: msg}); err != nil {
 				c.close()
 				return
 			}
@@ -180,10 +193,19 @@ func (c *Client) receive() {
 	}
 }
 
-func (c *Client) close() {
-	c.mu.Lock()
-	defer c.mu.Unlock()
+func (c *Client) connect() error {
+	conn, err := grpc.Dial(c.serverAddress, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		return fmt.Errorf("failed to connect to server at %s: %w", c.serverAddress, err)
+	}
 
+	c.conn = conn
+	c.grpcClient = proto.NewGRPCChatterClient(conn)
+
+	return nil
+}
+
+func (c *Client) close() {
 	if c.conn == nil || c.stream == nil {
 		return
 	}
@@ -197,11 +219,12 @@ func (c *Client) close() {
 	c.conn.Close()
 
 	c.conn = nil
+	c.grpcClient = nil
 	c.stream = nil
 }
 
-// Close gracefully terminates the client, closing the connection with the server and cleaning up associated resources.
-func (c *Client) Close() {
+// Disconnect gracefully disconnects the client from the server, closing the connection with the server and cleaning up associated resources.
+func (c *Client) Disconnect() {
 	c.close()
 	c.wg.Wait()
 }
