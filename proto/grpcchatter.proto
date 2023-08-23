@@ -13,6 +13,15 @@ message CreateChatRoomResponse {
     string short_code = 1;
 }
 
+message JoinChatRoomRequest {
+    string short_code = 1;
+    string room_password = 2;
+}
+
+message JoinChatRoomResponse {
+    string token = 1;
+}
+
 message ClientMessage {
     string name = 1;
     string body = 2;
@@ -25,5 +34,6 @@ message ServerMessage {
 
 service GRPCChatter {
     rpc CreateChatRoom(CreateChatRoomRequest) returns (CreateChatRoomResponse) {};
+    rpc JoinChatRoom(JoinChatRoomRequest) returns (JoinChatRoomResponse) {};
     rpc Chat(stream ClientMessage) returns (stream ServerMessage) {};
 }
