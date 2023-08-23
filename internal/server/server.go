@@ -2,7 +2,6 @@ package server
 
 import (
 	"fmt"
-	"math/rand"
 	"net"
 	"strconv"
 	"sync"
@@ -11,6 +10,7 @@ import (
 	"github.com/MSSkowron/GRPCChatter/proto/gen/proto"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 )
 
@@ -36,7 +36,7 @@ type GRPCChatterServer struct {
 }
 
 type client struct {
-	id           int
+	name         string
 	messageQueue chan message
 }
 
@@ -106,14 +106,45 @@ func (s *GRPCChatterServer) ListenAndServe() error {
 
 // Chat is a server-side streaming RPC handler that receives messages from clients and broadcasts them to all other clients.
 func (s *GRPCChatterServer) Chat(chs proto.GRPCChatter_ChatServer) error {
+	md, ok := metadata.FromIncomingContext(chs.Context())
+	if !ok {
+		return status.Errorf(codes.Unauthenticated, "Missing headers")
+	}
+
+	shortCodes := md.Get("shortCode")
+	if len(shortCodes) == 0 {
+		return status.Errorf(codes.Unauthenticated, "Missing short code")
+	}
+	shortCode := shortCodes[0]
+
+	// TODO: Validate shortCode
+
+	tokens := md.Get("token")
+	if len(tokens) == 0 {
+		return status.Errorf(codes.Unauthenticated, "Missing token")
+	}
+	token := tokens[0]
+
+	// TODO: Validate token
+
+	userNames := md.Get("userName")
+	if len(userNames) == 0 {
+		return status.Errorf(codes.Unauthenticated, "Missing user name")
+	}
+	userName := userNames[0]
+
+	// TODO: Validate userName
+
+	// TODO: Check userName permssions to the room based on the shortCode and token
+
 	c := &client{
-		id:           rand.Intn(1e6),
+		name:         userName,
 		messageQueue: make(chan message, s.maxMessageQueueSize),
 	}
 
-	logger.Info(fmt.Sprintf("Client [ID: %d] joined the chat", c.id))
-
 	s.addClient(c)
+
+	logger.Info(fmt.Sprintf("Client [ID: %s] joined the chat room with code [%s] using token [%s]", c.name, shortCode, token))
 
 	wg := &sync.WaitGroup{}
 	wg.Add(2)
@@ -129,7 +160,7 @@ func (s *GRPCChatterServer) Chat(chs proto.GRPCChatter_ChatServer) error {
 	close(receiveCh)
 	close(sendCh)
 
-	s.removeClient(c.id)
+	s.removeClient(c.name)
 
 	return nil
 }
@@ -145,9 +176,9 @@ func (s *GRPCChatterServer) receive(chs proto.GRPCChatter_ChatServer, c *client,
 			mssg, err := chs.Recv()
 			if err != nil {
 				if status.Code(err) == codes.Canceled {
-					logger.Info(fmt.Sprintf("Client [ID: %d] left the chat", c.id))
+					logger.Info(fmt.Sprintf("Client [UserName: %s] left the chat", c.name))
 				} else {
-					logger.Error(fmt.Sprintf("Failed to receive message from client [ID: %d]: %s", c.id, status.Convert(err).Message()))
+					logger.Error(fmt.Sprintf("Failed to receive message from client [UserName: %s]: %s", c.name, status.Convert(err).Message()))
 				}
 
 				sendStopCh <- struct{}{}
@@ -160,11 +191,11 @@ func (s *GRPCChatterServer) receive(chs proto.GRPCChatter_ChatServer, c *client,
 				body:   mssg.Body,
 			}
 
-			logger.Info(fmt.Sprintf("Received message: {Sender: %s; Body: %s} from client [ID: %d]", msg.sender, msg.body, c.id))
+			logger.Info(fmt.Sprintf("Received message: {Sender: %s; Body: %s} from client [UserName: %s]", msg.sender, msg.body, c.name))
 
 			s.mu.Lock()
 			for _, client := range s.clients {
-				if client.id != c.id {
+				if client.name != c.name {
 					client.messageQueue <- msg
 				}
 			}
@@ -185,14 +216,14 @@ func (s *GRPCChatterServer) send(chs proto.GRPCChatter_ChatServer, c *client, se
 				Name: msg.sender,
 				Body: msg.body,
 			}); err != nil {
-				logger.Error(fmt.Sprintf("Failed to send message to client [ID: %d]: %s", c.id, status.Convert(err).Message()))
+				logger.Error(fmt.Sprintf("Failed to send message to client [UserName: %s]: %s", c.name, status.Convert(err).Message()))
 
 				sendStopCh <- struct{}{}
 
 				return
 			}
 
-			logger.Info(fmt.Sprintf("Sent message: {Sender: %s; Body: %s} to client [ID: %d]", msg.sender, msg.body, c.id))
+			logger.Info(fmt.Sprintf("Sent message: {Sender: %s; Body: %s} to client [UserName: %s]", msg.sender, msg.body, c.name))
 		}
 	}
 }
@@ -202,22 +233,22 @@ func (s *GRPCChatterServer) addClient(c *client) {
 	s.clients = append(s.clients, c)
 	s.mu.Unlock()
 
-	logger.Debug(fmt.Sprintf("Added client [ID: %d] to server client's list", c.id))
+	logger.Debug(fmt.Sprintf("Added client [UserName: %s] to server client's list", c.name))
 }
 
-func (s *GRPCChatterServer) removeClient(id int) {
+func (s *GRPCChatterServer) removeClient(name string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	for i, c := range s.clients {
-		if c.id == id {
+		if c.name == name {
 			s.clients = append(s.clients[:i], s.clients[i+1:]...)
 
-			logger.Debug(fmt.Sprintf("Removed client [ID: %d] from server client's list", id))
+			logger.Debug(fmt.Sprintf("Removed client [UserName: %s] from server client's list", name))
 
 			break
 		}
 	}
 
-	logger.Debug(fmt.Sprintf("Client [ID: %d] was not found in the server's client list and was not removed", id))
+	logger.Debug(fmt.Sprintf("Client [UserName: %s] was not found in the server's client list and was not removed", name))
 }

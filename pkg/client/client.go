@@ -9,6 +9,7 @@ import (
 	"github.com/MSSkowron/GRPCChatter/proto/gen/proto"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/metadata"
 )
 
 var (
@@ -54,7 +55,7 @@ func NewClient(name string, serverAddress string) *Client {
 
 // Join connects the client to the server, initializes message channels, and starts receiving and sending messages.
 // Returns ErrAlreadyJoined when a connection with the server has already been established.
-func (c *Client) Join() error {
+func (c *Client) Join(shortCode string, password string) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -68,7 +69,17 @@ func (c *Client) Join() error {
 	}
 	c.conn = conn
 
-	stream, err := proto.NewGRPCChatterClient(c.conn).Chat(context.Background())
+	// TODO: Call RPC JoinChatRoom using shortCode and password. In return we get accessToken.
+	// For now let's create example variables.
+	token := "tokentokentokentokentokentoken"
+
+	md := metadata.New(map[string]string{
+		"userName":  c.name,
+		"shortCode": shortCode,
+		"token":     token,
+	})
+	ctx := metadata.NewOutgoingContext(context.Background(), md)
+	stream, err := proto.NewGRPCChatterClient(c.conn).Chat(ctx)
 	if err != nil {
 		c.conn.Close()
 		return fmt.Errorf("failed to create a stream with server at %s: %w", c.serverAddress, err)

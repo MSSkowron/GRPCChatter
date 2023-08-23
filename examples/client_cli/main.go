@@ -28,7 +28,7 @@ func main() {
 	c := client.NewClient(username, serverAddress)
 	defer c.Close()
 
-	if err := c.Join(); err != nil {
+	if err := c.Join("123abc", "password"); err != nil {
 		log.Fatalf("Failed to join the chat: %s", err)
 	}
 
