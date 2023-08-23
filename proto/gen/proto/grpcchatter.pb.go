@@ -20,19 +20,222 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+type CreateChatRoomRequest struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	RoomName     string `protobuf:"bytes,1,opt,name=room_name,json=roomName,proto3" json:"room_name,omitempty"`
+	RoomPassword string `protobuf:"bytes,2,opt,name=room_password,json=roomPassword,proto3" json:"room_password,omitempty"`
+}
+
+func (x *CreateChatRoomRequest) Reset() {
+	*x = CreateChatRoomRequest{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_proto_grpcchatter_proto_msgTypes[0]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *CreateChatRoomRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateChatRoomRequest) ProtoMessage() {}
+
+func (x *CreateChatRoomRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_grpcchatter_proto_msgTypes[0]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateChatRoomRequest.ProtoReflect.Descriptor instead.
+func (*CreateChatRoomRequest) Descriptor() ([]byte, []int) {
+	return file_proto_grpcchatter_proto_rawDescGZIP(), []int{0}
+}
+
+func (x *CreateChatRoomRequest) GetRoomName() string {
+	if x != nil {
+		return x.RoomName
+	}
+	return ""
+}
+
+func (x *CreateChatRoomRequest) GetRoomPassword() string {
+	if x != nil {
+		return x.RoomPassword
+	}
+	return ""
+}
+
+type CreateChatRoomResponse struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	ShortCode string `protobuf:"bytes,1,opt,name=short_code,json=shortCode,proto3" json:"short_code,omitempty"`
+}
+
+func (x *CreateChatRoomResponse) Reset() {
+	*x = CreateChatRoomResponse{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_proto_grpcchatter_proto_msgTypes[1]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *CreateChatRoomResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateChatRoomResponse) ProtoMessage() {}
+
+func (x *CreateChatRoomResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_grpcchatter_proto_msgTypes[1]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateChatRoomResponse.ProtoReflect.Descriptor instead.
+func (*CreateChatRoomResponse) Descriptor() ([]byte, []int) {
+	return file_proto_grpcchatter_proto_rawDescGZIP(), []int{1}
+}
+
+func (x *CreateChatRoomResponse) GetShortCode() string {
+	if x != nil {
+		return x.ShortCode
+	}
+	return ""
+}
+
+type JoinChatRoomRequest struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	ShortCode    string `protobuf:"bytes,1,opt,name=short_code,json=shortCode,proto3" json:"short_code,omitempty"`
+	RoomPassword string `protobuf:"bytes,2,opt,name=room_password,json=roomPassword,proto3" json:"room_password,omitempty"`
+}
+
+func (x *JoinChatRoomRequest) Reset() {
+	*x = JoinChatRoomRequest{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_proto_grpcchatter_proto_msgTypes[2]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *JoinChatRoomRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*JoinChatRoomRequest) ProtoMessage() {}
+
+func (x *JoinChatRoomRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_grpcchatter_proto_msgTypes[2]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use JoinChatRoomRequest.ProtoReflect.Descriptor instead.
+func (*JoinChatRoomRequest) Descriptor() ([]byte, []int) {
+	return file_proto_grpcchatter_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *JoinChatRoomRequest) GetShortCode() string {
+	if x != nil {
+		return x.ShortCode
+	}
+	return ""
+}
+
+func (x *JoinChatRoomRequest) GetRoomPassword() string {
+	if x != nil {
+		return x.RoomPassword
+	}
+	return ""
+}
+
+type JoinChatRoomResponse struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	Token string `protobuf:"bytes,1,opt,name=token,proto3" json:"token,omitempty"`
+}
+
+func (x *JoinChatRoomResponse) Reset() {
+	*x = JoinChatRoomResponse{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_proto_grpcchatter_proto_msgTypes[3]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *JoinChatRoomResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*JoinChatRoomResponse) ProtoMessage() {}
+
+func (x *JoinChatRoomResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_grpcchatter_proto_msgTypes[3]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use JoinChatRoomResponse.ProtoReflect.Descriptor instead.
+func (*JoinChatRoomResponse) Descriptor() ([]byte, []int) {
+	return file_proto_grpcchatter_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *JoinChatRoomResponse) GetToken() string {
+	if x != nil {
+		return x.Token
+	}
+	return ""
+}
+
 type ClientMessage struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	Body string `protobuf:"bytes,2,opt,name=body,proto3" json:"body,omitempty"`
+	Body string `protobuf:"bytes,1,opt,name=body,proto3" json:"body,omitempty"`
 }
 
 func (x *ClientMessage) Reset() {
 	*x = ClientMessage{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_proto_grpcchatter_proto_msgTypes[0]
+		mi := &file_proto_grpcchatter_proto_msgTypes[4]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -45,7 +248,7 @@ func (x *ClientMessage) String() string {
 func (*ClientMessage) ProtoMessage() {}
 
 func (x *ClientMessage) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_grpcchatter_proto_msgTypes[0]
+	mi := &file_proto_grpcchatter_proto_msgTypes[4]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -58,14 +261,7 @@ func (x *ClientMessage) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ClientMessage.ProtoReflect.Descriptor instead.
 func (*ClientMessage) Descriptor() ([]byte, []int) {
-	return file_proto_grpcchatter_proto_rawDescGZIP(), []int{0}
-}
-
-func (x *ClientMessage) GetName() string {
-	if x != nil {
-		return x.Name
-	}
-	return ""
+	return file_proto_grpcchatter_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *ClientMessage) GetBody() string {
@@ -87,7 +283,7 @@ type ServerMessage struct {
 func (x *ServerMessage) Reset() {
 	*x = ServerMessage{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_proto_grpcchatter_proto_msgTypes[1]
+		mi := &file_proto_grpcchatter_proto_msgTypes[5]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -100,7 +296,7 @@ func (x *ServerMessage) String() string {
 func (*ServerMessage) ProtoMessage() {}
 
 func (x *ServerMessage) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_grpcchatter_proto_msgTypes[1]
+	mi := &file_proto_grpcchatter_proto_msgTypes[5]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -113,7 +309,7 @@ func (x *ServerMessage) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServerMessage.ProtoReflect.Descriptor instead.
 func (*ServerMessage) Descriptor() ([]byte, []int) {
-	return file_proto_grpcchatter_proto_rawDescGZIP(), []int{1}
+	return file_proto_grpcchatter_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *ServerMessage) GetName() string {
@@ -135,19 +331,46 @@ var File_proto_grpcchatter_proto protoreflect.FileDescriptor
 var file_proto_grpcchatter_proto_rawDesc = []byte{
 	0x0a, 0x17, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2f, 0x67, 0x72, 0x70, 0x63, 0x63, 0x68, 0x61, 0x74,
 	0x74, 0x65, 0x72, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x12, 0x05, 0x70, 0x72, 0x6f, 0x74, 0x6f,
-	0x22, 0x37, 0x0a, 0x0d, 0x43, 0x6c, 0x69, 0x65, 0x6e, 0x74, 0x4d, 0x65, 0x73, 0x73, 0x61, 0x67,
-	0x65, 0x12, 0x12, 0x0a, 0x04, 0x6e, 0x61, 0x6d, 0x65, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52,
-	0x04, 0x6e, 0x61, 0x6d, 0x65, 0x12, 0x12, 0x0a, 0x04, 0x62, 0x6f, 0x64, 0x79, 0x18, 0x02, 0x20,
-	0x01, 0x28, 0x09, 0x52, 0x04, 0x62, 0x6f, 0x64, 0x79, 0x22, 0x37, 0x0a, 0x0d, 0x53, 0x65, 0x72,
-	0x76, 0x65, 0x72, 0x4d, 0x65, 0x73, 0x73, 0x61, 0x67, 0x65, 0x12, 0x12, 0x0a, 0x04, 0x6e, 0x61,
-	0x6d, 0x65, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x04, 0x6e, 0x61, 0x6d, 0x65, 0x12, 0x12,
-	0x0a, 0x04, 0x62, 0x6f, 0x64, 0x79, 0x18, 0x02, 0x20, 0x01, 0x28, 0x09, 0x52, 0x04, 0x62, 0x6f,
-	0x64, 0x79, 0x32, 0x47, 0x0a, 0x0b, 0x47, 0x52, 0x50, 0x43, 0x43, 0x68, 0x61, 0x74, 0x74, 0x65,
-	0x72, 0x12, 0x38, 0x0a, 0x04, 0x43, 0x68, 0x61, 0x74, 0x12, 0x14, 0x2e, 0x70, 0x72, 0x6f, 0x74,
-	0x6f, 0x2e, 0x43, 0x6c, 0x69, 0x65, 0x6e, 0x74, 0x4d, 0x65, 0x73, 0x73, 0x61, 0x67, 0x65, 0x1a,
-	0x14, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2e, 0x53, 0x65, 0x72, 0x76, 0x65, 0x72, 0x4d, 0x65,
-	0x73, 0x73, 0x61, 0x67, 0x65, 0x22, 0x00, 0x28, 0x01, 0x30, 0x01, 0x42, 0x08, 0x5a, 0x06, 0x2f,
-	0x70, 0x72, 0x6f, 0x74, 0x6f, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
+	0x22, 0x59, 0x0a, 0x15, 0x43, 0x72, 0x65, 0x61, 0x74, 0x65, 0x43, 0x68, 0x61, 0x74, 0x52, 0x6f,
+	0x6f, 0x6d, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x12, 0x1b, 0x0a, 0x09, 0x72, 0x6f, 0x6f,
+	0x6d, 0x5f, 0x6e, 0x61, 0x6d, 0x65, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x08, 0x72, 0x6f,
+	0x6f, 0x6d, 0x4e, 0x61, 0x6d, 0x65, 0x12, 0x23, 0x0a, 0x0d, 0x72, 0x6f, 0x6f, 0x6d, 0x5f, 0x70,
+	0x61, 0x73, 0x73, 0x77, 0x6f, 0x72, 0x64, 0x18, 0x02, 0x20, 0x01, 0x28, 0x09, 0x52, 0x0c, 0x72,
+	0x6f, 0x6f, 0x6d, 0x50, 0x61, 0x73, 0x73, 0x77, 0x6f, 0x72, 0x64, 0x22, 0x37, 0x0a, 0x16, 0x43,
+	0x72, 0x65, 0x61, 0x74, 0x65, 0x43, 0x68, 0x61, 0x74, 0x52, 0x6f, 0x6f, 0x6d, 0x52, 0x65, 0x73,
+	0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x1d, 0x0a, 0x0a, 0x73, 0x68, 0x6f, 0x72, 0x74, 0x5f, 0x63,
+	0x6f, 0x64, 0x65, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x09, 0x73, 0x68, 0x6f, 0x72, 0x74,
+	0x43, 0x6f, 0x64, 0x65, 0x22, 0x59, 0x0a, 0x13, 0x4a, 0x6f, 0x69, 0x6e, 0x43, 0x68, 0x61, 0x74,
+	0x52, 0x6f, 0x6f, 0x6d, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x12, 0x1d, 0x0a, 0x0a, 0x73,
+	0x68, 0x6f, 0x72, 0x74, 0x5f, 0x63, 0x6f, 0x64, 0x65, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52,
+	0x09, 0x73, 0x68, 0x6f, 0x72, 0x74, 0x43, 0x6f, 0x64, 0x65, 0x12, 0x23, 0x0a, 0x0d, 0x72, 0x6f,
+	0x6f, 0x6d, 0x5f, 0x70, 0x61, 0x73, 0x73, 0x77, 0x6f, 0x72, 0x64, 0x18, 0x02, 0x20, 0x01, 0x28,
+	0x09, 0x52, 0x0c, 0x72, 0x6f, 0x6f, 0x6d, 0x50, 0x61, 0x73, 0x73, 0x77, 0x6f, 0x72, 0x64, 0x22,
+	0x2c, 0x0a, 0x14, 0x4a, 0x6f, 0x69, 0x6e, 0x43, 0x68, 0x61, 0x74, 0x52, 0x6f, 0x6f, 0x6d, 0x52,
+	0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x14, 0x0a, 0x05, 0x74, 0x6f, 0x6b, 0x65, 0x6e,
+	0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x05, 0x74, 0x6f, 0x6b, 0x65, 0x6e, 0x22, 0x23, 0x0a,
+	0x0d, 0x43, 0x6c, 0x69, 0x65, 0x6e, 0x74, 0x4d, 0x65, 0x73, 0x73, 0x61, 0x67, 0x65, 0x12, 0x12,
+	0x0a, 0x04, 0x62, 0x6f, 0x64, 0x79, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x04, 0x62, 0x6f,
+	0x64, 0x79, 0x22, 0x37, 0x0a, 0x0d, 0x53, 0x65, 0x72, 0x76, 0x65, 0x72, 0x4d, 0x65, 0x73, 0x73,
+	0x61, 0x67, 0x65, 0x12, 0x12, 0x0a, 0x04, 0x6e, 0x61, 0x6d, 0x65, 0x18, 0x01, 0x20, 0x01, 0x28,
+	0x09, 0x52, 0x04, 0x6e, 0x61, 0x6d, 0x65, 0x12, 0x12, 0x0a, 0x04, 0x62, 0x6f, 0x64, 0x79, 0x18,
+	0x02, 0x20, 0x01, 0x28, 0x09, 0x52, 0x04, 0x62, 0x6f, 0x64, 0x79, 0x32, 0xe3, 0x01, 0x0a, 0x0b,
+	0x47, 0x52, 0x50, 0x43, 0x43, 0x68, 0x61, 0x74, 0x74, 0x65, 0x72, 0x12, 0x4f, 0x0a, 0x0e, 0x43,
+	0x72, 0x65, 0x61, 0x74, 0x65, 0x43, 0x68, 0x61, 0x74, 0x52, 0x6f, 0x6f, 0x6d, 0x12, 0x1c, 0x2e,
+	0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2e, 0x43, 0x72, 0x65, 0x61, 0x74, 0x65, 0x43, 0x68, 0x61, 0x74,
+	0x52, 0x6f, 0x6f, 0x6d, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x1d, 0x2e, 0x70, 0x72,
+	0x6f, 0x74, 0x6f, 0x2e, 0x43, 0x72, 0x65, 0x61, 0x74, 0x65, 0x43, 0x68, 0x61, 0x74, 0x52, 0x6f,
+	0x6f, 0x6d, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x00, 0x12, 0x49, 0x0a, 0x0c,
+	0x4a, 0x6f, 0x69, 0x6e, 0x43, 0x68, 0x61, 0x74, 0x52, 0x6f, 0x6f, 0x6d, 0x12, 0x1a, 0x2e, 0x70,
+	0x72, 0x6f, 0x74, 0x6f, 0x2e, 0x4a, 0x6f, 0x69, 0x6e, 0x43, 0x68, 0x61, 0x74, 0x52, 0x6f, 0x6f,
+	0x6d, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x1b, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f,
+	0x2e, 0x4a, 0x6f, 0x69, 0x6e, 0x43, 0x68, 0x61, 0x74, 0x52, 0x6f, 0x6f, 0x6d, 0x52, 0x65, 0x73,
+	0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x00, 0x12, 0x38, 0x0a, 0x04, 0x43, 0x68, 0x61, 0x74, 0x12,
+	0x14, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2e, 0x43, 0x6c, 0x69, 0x65, 0x6e, 0x74, 0x4d, 0x65,
+	0x73, 0x73, 0x61, 0x67, 0x65, 0x1a, 0x14, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2e, 0x53, 0x65,
+	0x72, 0x76, 0x65, 0x72, 0x4d, 0x65, 0x73, 0x73, 0x61, 0x67, 0x65, 0x22, 0x00, 0x28, 0x01, 0x30,
+	0x01, 0x42, 0x08, 0x5a, 0x06, 0x2f, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x62, 0x06, 0x70, 0x72, 0x6f,
+	0x74, 0x6f, 0x33,
 }
 
 var (
@@ -162,16 +385,24 @@ func file_proto_grpcchatter_proto_rawDescGZIP() []byte {
 	return file_proto_grpcchatter_proto_rawDescData
 }
 
-var file_proto_grpcchatter_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
+var file_proto_grpcchatter_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
 var file_proto_grpcchatter_proto_goTypes = []interface{}{
-	(*ClientMessage)(nil), // 0: proto.ClientMessage
-	(*ServerMessage)(nil), // 1: proto.ServerMessage
+	(*CreateChatRoomRequest)(nil),  // 0: proto.CreateChatRoomRequest
+	(*CreateChatRoomResponse)(nil), // 1: proto.CreateChatRoomResponse
+	(*JoinChatRoomRequest)(nil),    // 2: proto.JoinChatRoomRequest
+	(*JoinChatRoomResponse)(nil),   // 3: proto.JoinChatRoomResponse
+	(*ClientMessage)(nil),          // 4: proto.ClientMessage
+	(*ServerMessage)(nil),          // 5: proto.ServerMessage
 }
 var file_proto_grpcchatter_proto_depIdxs = []int32{
-	0, // 0: proto.GRPCChatter.Chat:input_type -> proto.ClientMessage
-	1, // 1: proto.GRPCChatter.Chat:output_type -> proto.ServerMessage
-	1, // [1:2] is the sub-list for method output_type
-	0, // [0:1] is the sub-list for method input_type
+	0, // 0: proto.GRPCChatter.CreateChatRoom:input_type -> proto.CreateChatRoomRequest
+	2, // 1: proto.GRPCChatter.JoinChatRoom:input_type -> proto.JoinChatRoomRequest
+	4, // 2: proto.GRPCChatter.Chat:input_type -> proto.ClientMessage
+	1, // 3: proto.GRPCChatter.CreateChatRoom:output_type -> proto.CreateChatRoomResponse
+	3, // 4: proto.GRPCChatter.JoinChatRoom:output_type -> proto.JoinChatRoomResponse
+	5, // 5: proto.GRPCChatter.Chat:output_type -> proto.ServerMessage
+	3, // [3:6] is the sub-list for method output_type
+	0, // [0:3] is the sub-list for method input_type
 	0, // [0:0] is the sub-list for extension type_name
 	0, // [0:0] is the sub-list for extension extendee
 	0, // [0:0] is the sub-list for field type_name
@@ -184,7 +415,7 @@ func file_proto_grpcchatter_proto_init() {
 	}
 	if !protoimpl.UnsafeEnabled {
 		file_proto_grpcchatter_proto_msgTypes[0].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*ClientMessage); i {
+			switch v := v.(*CreateChatRoomRequest); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -196,6 +427,54 @@ func file_proto_grpcchatter_proto_init() {
 			}
 		}
 		file_proto_grpcchatter_proto_msgTypes[1].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*CreateChatRoomResponse); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_proto_grpcchatter_proto_msgTypes[2].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*JoinChatRoomRequest); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_proto_grpcchatter_proto_msgTypes[3].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*JoinChatRoomResponse); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_proto_grpcchatter_proto_msgTypes[4].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*ClientMessage); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_proto_grpcchatter_proto_msgTypes[5].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*ServerMessage); i {
 			case 0:
 				return &v.state
@@ -214,7 +493,7 @@ func file_proto_grpcchatter_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: file_proto_grpcchatter_proto_rawDesc,
 			NumEnums:      0,
-			NumMessages:   2,
+			NumMessages:   6,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
