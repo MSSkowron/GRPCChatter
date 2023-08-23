@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"strconv"
@@ -104,6 +105,16 @@ func (s *GRPCChatterServer) ListenAndServe() error {
 	return nil
 }
 
+// TODO: Implement
+func (s *GRPCChatterServer) CreateChatRoom(ctx context.Context, req *proto.CreateChatRoomRequest) (*proto.CreateChatRoomResponse, error) {
+	return nil, nil
+}
+
+// TODO: Implement
+func (s *GRPCChatterServer) JoinChatRoom(ctx context.Context, req *proto.JoinChatRoomRequest) (*proto.JoinChatRoomResponse, error) {
+	return nil, nil
+}
+
 // Chat is a server-side streaming RPC handler that receives messages from clients and broadcasts them to all other clients.
 func (s *GRPCChatterServer) Chat(chs proto.GRPCChatter_ChatServer) error {
 	md, ok := metadata.FromIncomingContext(chs.Context())
@@ -187,7 +198,7 @@ func (s *GRPCChatterServer) receive(chs proto.GRPCChatter_ChatServer, c *client,
 			}
 
 			msg := message{
-				sender: mssg.Name,
+				sender: c.name,
 				body:   mssg.Body,
 			}
 
