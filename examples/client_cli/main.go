@@ -26,10 +26,15 @@ func main() {
 	username = strings.Trim(username, "\r\n")
 
 	c := client.NewClient(username, serverAddress)
-	defer c.Close()
+	defer c.Disconnect()
 
-	if err := c.Join("123abc", "password"); err != nil {
-		log.Fatalf("Failed to join the chat: %s", err)
+	shortCode, err := c.CreateChatRoom("myChatRoom", "password")
+	if err != nil {
+		log.Fatalf("Failed to create chat room: %s", err)
+	}
+
+	if err := c.JoinChatRoom(shortCode, "password"); err != nil {
+		log.Fatalf("Failed to join chat room: %s", err)
 	}
 
 	wg := &sync.WaitGroup{}
