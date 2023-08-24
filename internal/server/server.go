@@ -230,6 +230,7 @@ func (s *GRPCChatterServer) Chat(chs proto.GRPCChatter_ChatServer) error {
 func (s *GRPCChatterServer) receive(chs proto.GRPCChatter_ChatServer, c *client, r *room, sendStopCh chan<- struct{}, receiveStopCh <-chan struct{}, wg *sync.WaitGroup) {
 	defer wg.Done()
 
+	roomShortCode := r.shortCode
 	for {
 		select {
 		case <-receiveStopCh:
@@ -238,9 +239,9 @@ func (s *GRPCChatterServer) receive(chs proto.GRPCChatter_ChatServer, c *client,
 			mssg, err := chs.Recv()
 			if err != nil {
 				if status.Code(err) == codes.Canceled {
-					logger.Info(fmt.Sprintf("Client [UserName: %s] left the chat", c.name))
+					logger.Info(fmt.Sprintf("Client [UserName: %s] left the chat room with short code [%s]", c.name, roomShortCode))
 				} else {
-					logger.Error(fmt.Sprintf("Failed to receive message from client [UserName: %s]: %s", c.name, status.Convert(err).Message()))
+					logger.Error(fmt.Sprintf("Failed to receive message from client [UserName: %s] in chat room with short code [%s]: %s", c.name, roomShortCode, status.Convert(err).Message()))
 				}
 
 				sendStopCh <- struct{}{}
@@ -253,16 +254,15 @@ func (s *GRPCChatterServer) receive(chs proto.GRPCChatter_ChatServer, c *client,
 				body:   mssg.Body,
 			}
 
+			logger.Info(fmt.Sprintf("Received message [{Sender: %s; Body: %s}] from client [UserName: %s] in chat room with short code [%s]", msg.sender, msg.body, c.name, roomShortCode))
+
 			s.mu.RLock()
-			defer s.mu.RUnlock()
-
-			logger.Info(fmt.Sprintf("Received message [{Sender: %s; Body: %s}] from client [UserName: %s] in chat room with short code [%s]", msg.sender, msg.body, c.name, r.shortCode))
-
 			for _, client := range r.clients {
 				if client.name != c.name {
 					client.messageQueue <- msg
 				}
 			}
+			s.mu.RUnlock()
 		}
 	}
 }
@@ -270,6 +270,7 @@ func (s *GRPCChatterServer) receive(chs proto.GRPCChatter_ChatServer, c *client,
 func (s *GRPCChatterServer) send(chs proto.GRPCChatter_ChatServer, c *client, r *room, sendStopCh chan<- struct{}, receiveStopCh <-chan struct{}, wg *sync.WaitGroup) {
 	defer wg.Done()
 
+	roomShortCode := r.shortCode
 	for {
 		select {
 		case <-receiveStopCh:
@@ -279,17 +280,14 @@ func (s *GRPCChatterServer) send(chs proto.GRPCChatter_ChatServer, c *client, r 
 				UserName: msg.sender,
 				Body:     msg.body,
 			}); err != nil {
-				logger.Error(fmt.Sprintf("Failed to send message to client [UserName: %s]: %s", c.name, status.Convert(err).Message()))
+				logger.Error(fmt.Sprintf("Failed to send message to client [UserName: %s] in chat room with short code [%s]: %s", c.name, roomShortCode, status.Convert(err).Message()))
 
 				sendStopCh <- struct{}{}
 
 				return
 			}
 
-			s.mu.RLock()
-			defer s.mu.RUnlock()
-
-			logger.Info(fmt.Sprintf("Sent message [{Sender: %s; Body: %s}] to client [UserName: %s] in chat room with short code [%s]", msg.sender, msg.body, c.name, r.shortCode))
+			logger.Info(fmt.Sprintf("Sent message [{Sender: %s; Body: %s}] to client [UserName: %s] in chat room with short code [%s]", msg.sender, msg.body, c.name, roomShortCode))
 		}
 	}
 }
