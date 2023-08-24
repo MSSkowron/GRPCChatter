@@ -23,8 +23,8 @@ var (
 // The token contains the user name and short code.
 func Generate(userName, shortCode, secret string) (tokenString string, err error) {
 	claims := &jwt.MapClaims{
-		"userName":  userName,
-		"shortCode": shortCode,
+		claimUserNameKey:  userName,
+		claimShortCodeKey: shortCode,
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
