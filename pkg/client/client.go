@@ -28,6 +28,7 @@ type Client struct {
 	name          string
 	serverAddress string
 
+	mu         sync.RWMutex
 	conn       *grpc.ClientConn
 	grpcClient proto.GRPCChatterClient
 	stream     proto.GRPCChatter_ChatClient
@@ -57,6 +58,9 @@ func NewClient(name string, serverAddress string) *Client {
 // If the client is not already connected to a chat room, it establishes a connection and then sends a request to create the chat room.
 // Upon successful creation, it returns the shortcode of the newly created chat room.
 func (c *Client) CreateChatRoom(roomName, roomPassword string) (string, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	if c.conn == nil {
 		if err := c.connect(); err != nil {
 			return "", err
@@ -80,6 +84,9 @@ func (c *Client) CreateChatRoom(roomName, roomPassword string) (string, error) {
 // It then initializes channels for sending and receiving messages.
 // Returns ErrAlreadyJoined if the client is already connected to a chat room. To leave the current chat room, use the Disconnect method.
 func (c *Client) JoinChatRoom(shortCode string, password string) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	if c.stream != nil {
 		return ErrAlreadyJoined
 	}
@@ -127,13 +134,17 @@ func (c *Client) JoinChatRoom(shortCode string, password string) error {
 // It blocks until the message is sent or returns immediately when the stream is closed, and the message is discarded.
 // The JoinChatRoom() method must be called before the first usage.
 func (c *Client) Send(message string) error {
+	c.mu.RLock()
 	if c.conn == nil {
+		c.mu.RUnlock()
 		return ErrConnectionNotExists
 	}
 
 	if c.stream == nil {
+		c.mu.RUnlock()
 		return ErrStreamNotExists
 	}
+	c.mu.RUnlock()
 
 	select {
 	case c.sendQueue <- message:
@@ -149,13 +160,17 @@ func (c *Client) Send(message string) error {
 // The Join() method must be called before the first usage.
 // Returns ErrConnectionClosed if the client is not connected or ErrStreamNotExists if the stream is not established.
 func (c *Client) Receive() (Message, error) {
+	c.mu.RLock()
 	if c.conn == nil {
+		c.mu.RUnlock()
 		return Message{}, ErrConnectionNotExists
 	}
 
 	if c.stream == nil {
+		c.mu.RUnlock()
 		return Message{}, ErrStreamNotExists
 	}
+	c.mu.RUnlock()
 
 	select {
 	case msg := <-c.receiveQueue:
@@ -170,10 +185,13 @@ func (c *Client) send() {
 	for {
 		select {
 		case msg := <-c.sendQueue:
+			c.mu.RLock()
 			if err := c.stream.Send(&proto.ClientMessage{Body: msg}); err != nil {
+				c.mu.RUnlock()
 				c.close()
 				return
 			}
+			c.mu.RUnlock()
 		case <-c.closeCh:
 			return
 		}
@@ -183,11 +201,14 @@ func (c *Client) send() {
 func (c *Client) receive() {
 	defer c.wg.Done()
 	for {
+		c.mu.RLock()
 		msg, err := c.stream.Recv()
 		if err != nil {
+			c.mu.RUnlock()
 			c.close()
 			return
 		}
+		c.mu.RUnlock()
 
 		select {
 		case c.receiveQueue <- Message{
@@ -200,6 +221,7 @@ func (c *Client) receive() {
 	}
 }
 
+// It should be called with the c.mu read-write mutex locked.
 func (c *Client) connect() error {
 	conn, err := grpc.Dial(c.serverAddress, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
@@ -212,7 +234,11 @@ func (c *Client) connect() error {
 	return nil
 }
 
+// It should be called without the c.mu read-write mutex locked.
 func (c *Client) close() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	if c.conn == nil || c.stream == nil {
 		return
 	}
