@@ -98,6 +98,7 @@ func (c *Client) JoinChatRoom(shortCode string, password string) error {
 	}
 
 	resp, err := c.grpcClient.JoinChatRoom(context.Background(), &proto.JoinChatRoomRequest{
+		UserName:     c.name,
 		ShortCode:    shortCode,
 		RoomPassword: password,
 	})
@@ -212,7 +213,7 @@ func (c *Client) receive() {
 
 		select {
 		case c.receiveQueue <- Message{
-			Sender: msg.Name,
+			Sender: msg.UserName,
 			Body:   msg.Body,
 		}:
 		case <-c.closeCh:
