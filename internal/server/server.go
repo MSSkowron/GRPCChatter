@@ -24,6 +24,9 @@ const (
 	DefaultAddress = ""
 	// DefaultMaxMessageQueueSize is the default max size of the message queue that is used to store messages to be sent to clients.
 	DefaultMaxMessageQueueSize = 255
+	grpcHeaderShortCodeKey     = "shortCode"
+	grpcHeaderTokenKey         = "token"
+	grpcHeaderUserNameKey      = "userName"
 )
 
 // GRPCChatterServer represents a GRPCChatter server.
@@ -145,11 +148,11 @@ func (s *GRPCChatterServer) JoinChatRoom(ctx context.Context, req *proto.JoinCha
 
 	room, ok := s.rooms[roomShortCode]
 	if !ok {
-		return nil, status.Errorf(codes.NotFound, "Chat room not found")
+		return nil, status.Errorf(codes.NotFound, "Chat room with short code [%s] not found", req.GetShortCode())
 	}
 
 	if req.GetRoomPassword() != room.password {
-		return nil, status.Errorf(codes.PermissionDenied, "Invalid room password")
+		return nil, status.Errorf(codes.PermissionDenied, "Invalid room with short code [%s] password", req.GetShortCode())
 	}
 
 	s.addClientToRoom(&client{
@@ -166,34 +169,31 @@ func (s *GRPCChatterServer) JoinChatRoom(ctx context.Context, req *proto.JoinCha
 func (s *GRPCChatterServer) Chat(chs proto.GRPCChatter_ChatServer) error {
 	md, ok := metadata.FromIncomingContext(chs.Context())
 	if !ok {
-		return status.Errorf(codes.Unauthenticated, "Missing headers")
+		return status.Errorf(codes.Unauthenticated, "Missing gRPC headers: %s, %s, %s", grpcHeaderShortCodeKey, grpcHeaderTokenKey, grpcHeaderUserNameKey)
 	}
 
-	shortCodes := md.Get("shortCode")
+	shortCodes := md.Get(grpcHeaderShortCodeKey)
 	if len(shortCodes) == 0 {
-		return status.Errorf(codes.Unauthenticated, "Missing short code")
+		return status.Errorf(codes.Unauthenticated, "Missing gRPC headers: %s", grpcHeaderShortCodeKey)
 	}
 	roomShortCode := shortCodes[0]
 
-	// TODO: Validate shortCode
-
-	tokens := md.Get("token")
+	tokens := md.Get(grpcHeaderTokenKey)
 	if len(tokens) == 0 {
-		return status.Errorf(codes.Unauthenticated, "Missing token")
+		return status.Errorf(codes.Unauthenticated, "Missing gRPC headers: %s", grpcHeaderTokenKey)
 	}
 	userToken := tokens[0]
 
-	// TODO: Validate token
-
-	userNames := md.Get("userName")
+	userNames := md.Get(grpcHeaderUserNameKey)
 	if len(userNames) == 0 {
-		return status.Errorf(codes.Unauthenticated, "Missing user name")
+		return status.Errorf(codes.Unauthenticated, "Missing gRPC headers: %s", grpcHeaderUserNameKey)
 	}
 	userName := userNames[0]
 
+	// TODO: Validate shortCode
+	// TODO: Validate token
 	// TODO: Validate userName
-
-	// TODO: Check userName permssions to the shortCode room based on the provided token
+	// TODO: Validate userName permssions to the shortCode room based on the provided token
 
 	logger.Info(fmt.Sprintf("Client [UserName: %s] established message stream with the chat room with short code [%s] using token [%s]", userName, roomShortCode, userToken))
 
