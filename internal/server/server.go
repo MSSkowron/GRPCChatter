@@ -34,7 +34,7 @@ type GRPCChatterServer struct {
 	port                int
 	maxMessageQueueSize int
 
-	mu    sync.Mutex
+	mu    sync.RWMutex
 	rooms map[shortCode]*room
 }
 
@@ -44,7 +44,8 @@ type room struct {
 	shortCode shortCode
 	name      string
 	password  string
-	clients   []*client
+
+	clients []*client
 }
 
 type client struct {
@@ -119,16 +120,12 @@ func (s *GRPCChatterServer) ListenAndServe() error {
 
 // CreateChatRoom is an RPC handler that creates a new chat room.
 func (s *GRPCChatterServer) CreateChatRoom(ctx context.Context, req *proto.CreateChatRoomRequest) (*proto.CreateChatRoomResponse, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	roomShortCode := s.generateShortCode(req.GetRoomName())
 
-	s.rooms[roomShortCode] = &room{
-		shortCode: roomShortCode,
-		name:      req.GetRoomName(),
-		password:  req.GetRoomPassword(),
-		clients:   make([]*client, 0),
-	}
-
-	logger.Info(fmt.Sprintf("Created room [%s] with short code [%s]", req.GetRoomName(), roomShortCode))
+	s.addRoom(roomShortCode, req.GetRoomName(), req.GetRoomPassword())
 
 	return &proto.CreateChatRoomResponse{
 		ShortCode: string(roomShortCode),
@@ -137,6 +134,9 @@ func (s *GRPCChatterServer) CreateChatRoom(ctx context.Context, req *proto.Creat
 
 // JoinChatRoom is an RPC handler that allows a user to join an existing chat room.
 func (s *GRPCChatterServer) JoinChatRoom(ctx context.Context, req *proto.JoinChatRoomRequest) (*proto.JoinChatRoomResponse, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	roomShortCode := shortCode(req.GetShortCode())
 
 	room, ok := s.rooms[roomShortCode]
@@ -189,8 +189,9 @@ func (s *GRPCChatterServer) Chat(chs proto.GRPCChatter_ChatServer) error {
 
 	// TODO: Validate userName
 
-	// TODO: Check userName permssions to the room based on the shortCode and token
+	// TODO: Check userName permssions to the shortCode room based on the provided token
 
+	s.mu.RLock()
 	room := s.rooms[shortCode(roomShortCode)]
 
 	var c *client
@@ -211,11 +212,15 @@ func (s *GRPCChatterServer) Chat(chs proto.GRPCChatter_ChatServer) error {
 
 	go s.receive(chs, c, room, sendCh, receiveCh, wg)
 	go s.send(chs, c, room, receiveCh, sendCh, wg)
+	s.mu.RUnlock()
 
 	wg.Wait()
 
 	close(receiveCh)
 	close(sendCh)
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
 
 	s.removeClientFromRoom(c, room)
 
@@ -248,15 +253,16 @@ func (s *GRPCChatterServer) receive(chs proto.GRPCChatter_ChatServer, c *client,
 				body:   mssg.Body,
 			}
 
+			s.mu.RLock()
+			defer s.mu.RUnlock()
+
 			logger.Info(fmt.Sprintf("Received message [{Sender: %s; Body: %s}] from client [UserName: %s] in chat room with short code [%s]", msg.sender, msg.body, c.name, r.shortCode))
 
-			s.mu.Lock()
 			for _, client := range r.clients {
 				if client.name != c.name {
 					client.messageQueue <- msg
 				}
 			}
-			s.mu.Unlock()
 		}
 	}
 }
@@ -280,21 +286,35 @@ func (s *GRPCChatterServer) send(chs proto.GRPCChatter_ChatServer, c *client, r 
 				return
 			}
 
+			s.mu.RLock()
+			defer s.mu.RUnlock()
+
 			logger.Info(fmt.Sprintf("Sent message [{Sender: %s; Body: %s}] to client [UserName: %s] in chat room with short code [%s]", msg.sender, msg.body, c.name, r.shortCode))
 		}
 	}
 }
 
+// It should be called with the s.mu read-write mutex locked.
+func (s *GRPCChatterServer) addRoom(shortCode shortCode, name, password string) {
+	s.rooms[shortCode] = &room{
+		shortCode: shortCode,
+		name:      name,
+		password:  password,
+		clients:   make([]*client, 0),
+	}
+
+	logger.Info(fmt.Sprintf("Created room [%s] with short code [%s]", name, shortCode))
+}
+
+// It should be called with the s.mu read-write mutex locked.
 func (s *GRPCChatterServer) addClientToRoom(c *client, r *room) {
 	r.clients = append(r.clients, c)
 
 	logger.Info(fmt.Sprintf("Added client [UserName: %s] to chat room client's list with short code [%s]", c.name, r.shortCode))
 }
 
+// It should be called with the s.mu read-write mutex locked.
 func (s *GRPCChatterServer) removeClientFromRoom(c *client, r *room) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
 	for i, client := range r.clients {
 		if client.name == c.name {
 			r.clients = append(r.clients[:i], r.clients[i+1:]...)
