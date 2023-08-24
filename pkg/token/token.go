@@ -7,8 +7,8 @@ import (
 )
 
 const (
-	claimUserNameKey  = "userName"
-	claimShortCodeKey = "shortCode"
+	ClaimUserNameKey  = "userName"
+	ClaimShortCodeKey = "shortCode"
 )
 
 var (
@@ -23,8 +23,8 @@ var (
 // The token contains the user name and short code.
 func Generate(userName, shortCode, secret string) (tokenString string, err error) {
 	claims := &jwt.MapClaims{
-		claimUserNameKey:  userName,
-		claimShortCodeKey: shortCode,
+		ClaimUserNameKey:  userName,
+		ClaimShortCodeKey: shortCode,
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
@@ -50,12 +50,12 @@ func Validate(tokenString, secret string) error {
 		return ErrInvalidToken
 	}
 
-	userName, ok := token.Claims.(jwt.MapClaims)[claimUserNameKey].(string)
+	userName, ok := token.Claims.(jwt.MapClaims)[ClaimUserNameKey].(string)
 	if !ok || userName == "" {
 		return ErrInvalidToken
 	}
 
-	shortCode, ok := token.Claims.(jwt.MapClaims)[claimShortCodeKey].(string)
+	shortCode, ok := token.Claims.(jwt.MapClaims)[ClaimShortCodeKey].(string)
 	if !ok || shortCode == "" {
 		return ErrInvalidToken
 	}

@@ -7,6 +7,10 @@ import (
 	"github.com/MSSkowron/GRPCChatter/internal/server"
 )
 
+const (
+	secret = "12345678901234567890123456789012"
+)
+
 // Config holds configuration options for the GRPCChatter server.
 type Config struct {
 	Address             string
@@ -31,6 +35,7 @@ func Run() error {
 	config := ParseConfig()
 
 	server := server.NewGRPCChatterServer(
+		secret,
 		server.WithAddress(config.Address),
 		server.WithPort(config.Port),
 		server.WithMaxMessageQueueSize(config.MaxMessageQueueSize),

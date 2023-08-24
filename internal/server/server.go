@@ -10,6 +10,7 @@ import (
 	"sync"
 
 	"github.com/MSSkowron/GRPCChatter/pkg/logger"
+	"github.com/MSSkowron/GRPCChatter/pkg/token"
 	"github.com/MSSkowron/GRPCChatter/proto/gen/proto"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -25,9 +26,7 @@ const (
 	// DefaultMaxMessageQueueSize is the default max size of the message queue that is used to store messages to be sent to clients.
 	DefaultMaxMessageQueueSize = 255
 	shortCodeLength            = 6
-	grpcHeaderShortCodeKey     = "shortCode"
 	grpcHeaderTokenKey         = "token"
-	grpcHeaderUserNameKey      = "userName"
 )
 
 // GRPCChatterServer represents a GRPCChatter server.
@@ -37,6 +36,8 @@ type GRPCChatterServer struct {
 	address             string
 	port                int
 	maxMessageQueueSize int
+
+	secret string
 
 	mu    sync.RWMutex
 	rooms map[shortCode]*room
@@ -63,11 +64,12 @@ type message struct {
 }
 
 // NewGRPCChatterServer creates a new GRPCChatter server.
-func NewGRPCChatterServer(opts ...Opt) *GRPCChatterServer {
+func NewGRPCChatterServer(secret string, opts ...Opt) *GRPCChatterServer {
 	server := &GRPCChatterServer{
 		address:             DefaultAddress,
 		port:                DefaultPort,
 		maxMessageQueueSize: DefaultMaxMessageQueueSize,
+		secret:              secret,
 		rooms:               make(map[shortCode]*room),
 	}
 
@@ -161,8 +163,13 @@ func (s *GRPCChatterServer) JoinChatRoom(ctx context.Context, req *proto.JoinCha
 		messageQueue: make(chan message, s.maxMessageQueueSize),
 	}, room)
 
+	token, err := s.generateUserToken(req.GetUserName(), req.GetShortCode())
+	if err != nil {
+		return nil, status.Error(codes.Internal, "Internal server error")
+	}
+
 	return &proto.JoinChatRoomResponse{
-		Token: req.GetShortCode() + ":123",
+		Token: token,
 	}, nil
 }
 
@@ -170,14 +177,8 @@ func (s *GRPCChatterServer) JoinChatRoom(ctx context.Context, req *proto.JoinCha
 func (s *GRPCChatterServer) Chat(chs proto.GRPCChatter_ChatServer) error {
 	md, ok := metadata.FromIncomingContext(chs.Context())
 	if !ok {
-		return status.Errorf(codes.Unauthenticated, "Missing gRPC headers: %s, %s, %s", grpcHeaderShortCodeKey, grpcHeaderTokenKey, grpcHeaderUserNameKey)
+		return status.Errorf(codes.Unauthenticated, "Missing gRPC headers: %s", grpcHeaderTokenKey)
 	}
-
-	shortCodes := md.Get(grpcHeaderShortCodeKey)
-	if len(shortCodes) == 0 {
-		return status.Errorf(codes.Unauthenticated, "Missing gRPC headers: %s", grpcHeaderShortCodeKey)
-	}
-	roomShortCode := shortCodes[0]
 
 	tokens := md.Get(grpcHeaderTokenKey)
 	if len(tokens) == 0 {
@@ -185,16 +186,19 @@ func (s *GRPCChatterServer) Chat(chs proto.GRPCChatter_ChatServer) error {
 	}
 	userToken := tokens[0]
 
-	userNames := md.Get(grpcHeaderUserNameKey)
-	if len(userNames) == 0 {
-		return status.Errorf(codes.Unauthenticated, "Missing gRPC headers: %s", grpcHeaderUserNameKey)
+	if err := s.validateUserToken(userToken); err != nil {
+		return status.Error(codes.Unauthenticated, "Invalid token")
 	}
-	userName := userNames[0]
 
-	// TODO: Validate shortCode
-	// TODO: Validate token
-	// TODO: Validate userName
-	// TODO: Validate userName permssions to the shortCode room based on the provided token
+	roomShortCode, err := s.getShortCodeFromToken(userToken)
+	if err != nil {
+		return status.Error(codes.Unauthenticated, "Invalid token")
+	}
+
+	userName, err := s.getUserNameFromToken(userToken)
+	if err != nil {
+		return status.Error(codes.Unauthenticated, "Invalid token")
+	}
 
 	logger.Info(fmt.Sprintf("Client [UserName: %s] established message stream with the chat room with short code [%s] using token [%s]", userName, roomShortCode, userToken))
 
@@ -332,6 +336,22 @@ func (s *GRPCChatterServer) removeClientFromRoom(c *client, r *room) {
 
 func (s *GRPCChatterServer) generateShortCode(roomName string) shortCode {
 	return shortCode(randStr(shortCodeLength))
+}
+
+func (s *GRPCChatterServer) generateUserToken(userName, shortCode string) (string, error) {
+	return token.Generate(userName, shortCode, s.secret)
+}
+
+func (s *GRPCChatterServer) validateUserToken(t string) error {
+	return token.Validate(t, s.secret)
+}
+
+func (s *GRPCChatterServer) getUserNameFromToken(t string) (string, error) {
+	return token.GetClaimValue(t, s.secret, token.ClaimUserNameKey)
+}
+
+func (s *GRPCChatterServer) getShortCodeFromToken(t string) (string, error) {
+	return token.GetClaimValue(t, s.secret, token.ClaimShortCodeKey)
 }
 
 var chars = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890")

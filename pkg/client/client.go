@@ -107,9 +107,7 @@ func (c *Client) JoinChatRoom(shortCode string, password string) error {
 	}
 
 	md := metadata.New(map[string]string{
-		"userName":  c.name,
-		"shortCode": shortCode,
-		"token":     resp.GetToken(),
+		"token": resp.GetToken(),
 	})
 	ctx := metadata.NewOutgoingContext(context.Background(), md)
 	stream, err := c.grpcClient.Chat(ctx)

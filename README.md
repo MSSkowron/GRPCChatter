@@ -61,17 +61,14 @@ To start using GRPCChatter, follow these steps to run the server:
     ```
 
 ### GRPCChatter Server
- 
+
 The Server is the core component of the GRPCChatter application, responsible for handling various gRPC methods. Below are the methods supported by the server, along with their descriptions:
 
-- **CreateChatRoom**: Allows clients to create a new chat room with a specified name and password. Upon successful creation, it returns a short code that can be used to join the room later.
+- **CreateChatRoom**: Allows clients to create a new chat room with custom name and password. Upon successful creation, it returns a short access code that users can employ to join the room later using JoinChatRoom method.
 
-- **JoinChatRoom**:  Allows clients to join an existing chat room by providing the short code of the room and the associated password. Upon successful authentication, it returns a token that can be used for communication within the room.
+- **JoinChatRoom**: Allow clients to join existing chat rooms by providing the room's short access code and the associated password. After successful authentication, it returns a JSON Web Token (JWT) that contains two essential values in its payload: `userName` and `shortCode`. This JWT is crucial for facilitating communication within the room.
 
-- **Chat**: Establishes a bidirectional streaming connection for real-time chat. Clients can send messages to the server using the ClientMessage type, and the server responds with incoming messages in the ServerMessage format. This method allows for continuous communication between clients and the server. It requires three gRPC headers attached:
-  - userName
-  - shortCode
-  - token
+- **Chat**: Establishes a bidirectional streaming connection, enabling real-time chat between clients and the server. Clients can send messages to the server, and the server responds with incoming messages. To use this method, clients must attach a gRPC header with the key `token`, containing a valid JSON Web Token acquired from the JoinChatRoom method. This mechanism ensures continuous and secure communication within the chat room.
 
 ### GRPCChatter Client
 
