@@ -220,9 +220,8 @@ func (s *GRPCChatterServer) Chat(chs proto.GRPCChatter_ChatServer) error {
 	close(sendCh)
 
 	s.mu.Lock()
-	defer s.mu.Unlock()
-
 	s.removeClientFromRoom(c, room)
+	s.mu.Unlock()
 
 	return nil
 }
