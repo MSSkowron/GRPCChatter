@@ -24,6 +24,7 @@ const (
 	DefaultAddress = ""
 	// DefaultMaxMessageQueueSize is the default max size of the message queue that is used to store messages to be sent to clients.
 	DefaultMaxMessageQueueSize = 255
+	shortCodeLength            = 6
 	grpcHeaderShortCodeKey     = "shortCode"
 	grpcHeaderTokenKey         = "token"
 	grpcHeaderUserNameKey      = "userName"
@@ -330,16 +331,16 @@ func (s *GRPCChatterServer) removeClientFromRoom(c *client, r *room) {
 }
 
 func (s *GRPCChatterServer) generateShortCode(roomName string) shortCode {
-	return shortCode(roomName + ":" + randStr(6))
+	return shortCode(randStr(shortCodeLength))
 }
 
-var letters = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
+var chars = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890")
 
 func randStr(n int) string {
 	b := make([]rune, n)
 	for i := range b {
-		letterIdx, _ := cryptorand.Int(cryptorand.Reader, big.NewInt(int64(len(letters))))
-		b[i] = letters[letterIdx.Int64()]
+		letterIdx, _ := cryptorand.Int(cryptorand.Reader, big.NewInt(int64(len(chars))))
+		b[i] = chars[letterIdx.Int64()]
 	}
 	return string(b)
 }
