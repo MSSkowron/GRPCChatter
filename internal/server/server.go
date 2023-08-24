@@ -2,7 +2,9 @@ package server
 
 import (
 	"context"
+	cryptorand "crypto/rand"
 	"fmt"
+	"math/big"
 	"net"
 	"strconv"
 	"sync"
@@ -115,14 +117,45 @@ func (s *GRPCChatterServer) ListenAndServe() error {
 	return nil
 }
 
-// TODO: Implement
+// CreateChatRoom is an RPC handler that creates a new chat room.
 func (s *GRPCChatterServer) CreateChatRoom(ctx context.Context, req *proto.CreateChatRoomRequest) (*proto.CreateChatRoomResponse, error) {
-	return nil, nil
+	roomShortCode := s.generateShortCode(req.GetRoomName())
+
+	s.rooms[roomShortCode] = &room{
+		shortCode: roomShortCode,
+		name:      req.GetRoomName(),
+		password:  req.GetRoomPassword(),
+		clients:   make([]*client, 0),
+	}
+
+	logger.Info(fmt.Sprintf("Created room [%s] with short code [%s]", req.GetRoomName(), roomShortCode))
+
+	return &proto.CreateChatRoomResponse{
+		ShortCode: string(roomShortCode),
+	}, nil
 }
 
-// TODO: Implement
+// JoinChatRoom is an RPC handler that allows a user to join an existing chat room.
 func (s *GRPCChatterServer) JoinChatRoom(ctx context.Context, req *proto.JoinChatRoomRequest) (*proto.JoinChatRoomResponse, error) {
-	return nil, nil
+	roomShortCode := shortCode(req.GetShortCode())
+
+	room, ok := s.rooms[roomShortCode]
+	if !ok {
+		return nil, status.Errorf(codes.NotFound, "Chat room not found")
+	}
+
+	if req.GetRoomPassword() != room.password {
+		return nil, status.Errorf(codes.PermissionDenied, "Invalid room password")
+	}
+
+	s.addClientToRoom(&client{
+		name:         req.GetUserName(),
+		messageQueue: make(chan message, s.maxMessageQueueSize),
+	}, room)
+
+	return &proto.JoinChatRoomResponse{
+		Token: req.GetShortCode() + ":123",
+	}, nil
 }
 
 // Chat is a server-side streaming RPC handler that receives messages from clients and broadcasts them to all other clients.
@@ -160,14 +193,15 @@ func (s *GRPCChatterServer) Chat(chs proto.GRPCChatter_ChatServer) error {
 
 	room := s.rooms[shortCode(roomShortCode)]
 
-	c := &client{
-		name:         userName,
-		messageQueue: make(chan message, s.maxMessageQueueSize),
+	var c *client
+	for _, client := range room.clients {
+		if client.name == userName {
+			c = client
+			break
+		}
 	}
 
-	s.addClientToRoom(c, room)
-
-	logger.Info(fmt.Sprintf("Client [ID: %s] joined the chat room with code [%s] using token [%s]", c.name, roomShortCode, userToken))
+	logger.Info(fmt.Sprintf("Client [UserName: %s] established message stream with the chat room with short code [%s] using token [%s]", c.name, roomShortCode, userToken))
 
 	wg := &sync.WaitGroup{}
 	wg.Add(2)
@@ -176,7 +210,7 @@ func (s *GRPCChatterServer) Chat(chs proto.GRPCChatter_ChatServer) error {
 	sendCh := make(chan struct{}, 1)
 
 	go s.receive(chs, c, room, sendCh, receiveCh, wg)
-	go s.send(chs, c, receiveCh, sendCh, wg)
+	go s.send(chs, c, room, receiveCh, sendCh, wg)
 
 	wg.Wait()
 
@@ -214,7 +248,7 @@ func (s *GRPCChatterServer) receive(chs proto.GRPCChatter_ChatServer, c *client,
 				body:   mssg.Body,
 			}
 
-			logger.Info(fmt.Sprintf("Received message: {Sender: %s; Body: %s} from client [UserName: %s]", msg.sender, msg.body, c.name))
+			logger.Info(fmt.Sprintf("Received message [{Sender: %s; Body: %s}] from client [UserName: %s] in chat room with short code [%s]", msg.sender, msg.body, c.name, r.shortCode))
 
 			s.mu.Lock()
 			for _, client := range r.clients {
@@ -227,7 +261,7 @@ func (s *GRPCChatterServer) receive(chs proto.GRPCChatter_ChatServer, c *client,
 	}
 }
 
-func (s *GRPCChatterServer) send(chs proto.GRPCChatter_ChatServer, c *client, sendStopCh chan<- struct{}, receiveStopCh <-chan struct{}, wg *sync.WaitGroup) {
+func (s *GRPCChatterServer) send(chs proto.GRPCChatter_ChatServer, c *client, r *room, sendStopCh chan<- struct{}, receiveStopCh <-chan struct{}, wg *sync.WaitGroup) {
 	defer wg.Done()
 
 	for {
@@ -236,8 +270,8 @@ func (s *GRPCChatterServer) send(chs proto.GRPCChatter_ChatServer, c *client, se
 			return
 		case msg := <-c.messageQueue:
 			if err := chs.Send(&proto.ServerMessage{
-				Name: msg.sender,
-				Body: msg.body,
+				UserName: msg.sender,
+				Body:     msg.body,
 			}); err != nil {
 				logger.Error(fmt.Sprintf("Failed to send message to client [UserName: %s]: %s", c.name, status.Convert(err).Message()))
 
@@ -246,7 +280,7 @@ func (s *GRPCChatterServer) send(chs proto.GRPCChatter_ChatServer, c *client, se
 				return
 			}
 
-			logger.Info(fmt.Sprintf("Sent message: {Sender: %s; Body: %s} to client [UserName: %s]", msg.sender, msg.body, c.name))
+			logger.Info(fmt.Sprintf("Sent message [{Sender: %s; Body: %s}] to client [UserName: %s] in chat room with short code [%s]", msg.sender, msg.body, c.name, r.shortCode))
 		}
 	}
 }
@@ -254,7 +288,7 @@ func (s *GRPCChatterServer) send(chs proto.GRPCChatter_ChatServer, c *client, se
 func (s *GRPCChatterServer) addClientToRoom(c *client, r *room) {
 	r.clients = append(r.clients, c)
 
-	logger.Debug(fmt.Sprintf("Added client [UserName: %s] to chat room client's list with code [%s]", c.name, r.shortCode))
+	logger.Info(fmt.Sprintf("Added client [UserName: %s] to chat room client's list with short code [%s]", c.name, r.shortCode))
 }
 
 func (s *GRPCChatterServer) removeClientFromRoom(c *client, r *room) {
@@ -265,11 +299,26 @@ func (s *GRPCChatterServer) removeClientFromRoom(c *client, r *room) {
 		if client.name == c.name {
 			r.clients = append(r.clients[:i], r.clients[i+1:]...)
 
-			logger.Debug(fmt.Sprintf("Removed client [UserName: %s] from chat room client's list with code [%s]", c.name, r.shortCode))
+			logger.Info(fmt.Sprintf("Removed client [UserName: %s] from chat room client's list with short code [%s]", c.name, r.shortCode))
 
-			break
+			return
 		}
 	}
 
-	logger.Debug(fmt.Sprintf("Client [UserName: %s] was not found in the chat room client's list with code [%s] and was not removed", c.name, r.shortCode))
+	logger.Info(fmt.Sprintf("Client [UserName: %s] was not found in the chat room client's list with short code [%s] and was not removed", c.name, r.shortCode))
+}
+
+func (s *GRPCChatterServer) generateShortCode(roomName string) shortCode {
+	return shortCode(roomName + ":" + randStr(6))
+}
+
+var letters = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
+
+func randStr(n int) string {
+	b := make([]rune, n)
+	for i := range b {
+		letterIdx, _ := cryptorand.Int(cryptorand.Reader, big.NewInt(int64(len(letters))))
+		b[i] = letters[letterIdx.Int64()]
+	}
+	return string(b)
 }
