@@ -32,8 +32,17 @@ type GRPCChatterServer struct {
 	port                int
 	maxMessageQueueSize int
 
-	mu      sync.Mutex
-	clients []*client
+	mu    sync.Mutex
+	rooms map[shortCode]*room
+}
+
+type shortCode string
+
+type room struct {
+	shortCode shortCode
+	name      string
+	password  string
+	clients   []*client
 }
 
 type client struct {
@@ -52,6 +61,7 @@ func NewGRPCChatterServer(opts ...Opt) *GRPCChatterServer {
 		address:             DefaultAddress,
 		port:                DefaultPort,
 		maxMessageQueueSize: DefaultMaxMessageQueueSize,
+		rooms:               make(map[shortCode]*room),
 	}
 
 	for _, opt := range opts {
@@ -126,7 +136,7 @@ func (s *GRPCChatterServer) Chat(chs proto.GRPCChatter_ChatServer) error {
 	if len(shortCodes) == 0 {
 		return status.Errorf(codes.Unauthenticated, "Missing short code")
 	}
-	shortCode := shortCodes[0]
+	roomShortCode := shortCodes[0]
 
 	// TODO: Validate shortCode
 
@@ -134,7 +144,7 @@ func (s *GRPCChatterServer) Chat(chs proto.GRPCChatter_ChatServer) error {
 	if len(tokens) == 0 {
 		return status.Errorf(codes.Unauthenticated, "Missing token")
 	}
-	token := tokens[0]
+	userToken := tokens[0]
 
 	// TODO: Validate token
 
@@ -148,14 +158,16 @@ func (s *GRPCChatterServer) Chat(chs proto.GRPCChatter_ChatServer) error {
 
 	// TODO: Check userName permssions to the room based on the shortCode and token
 
+	room := s.rooms[shortCode(roomShortCode)]
+
 	c := &client{
 		name:         userName,
 		messageQueue: make(chan message, s.maxMessageQueueSize),
 	}
 
-	s.addClient(c)
+	s.addClientToRoom(c, room)
 
-	logger.Info(fmt.Sprintf("Client [ID: %s] joined the chat room with code [%s] using token [%s]", c.name, shortCode, token))
+	logger.Info(fmt.Sprintf("Client [ID: %s] joined the chat room with code [%s] using token [%s]", c.name, roomShortCode, userToken))
 
 	wg := &sync.WaitGroup{}
 	wg.Add(2)
@@ -163,7 +175,7 @@ func (s *GRPCChatterServer) Chat(chs proto.GRPCChatter_ChatServer) error {
 	receiveCh := make(chan struct{}, 1)
 	sendCh := make(chan struct{}, 1)
 
-	go s.receive(chs, c, sendCh, receiveCh, wg)
+	go s.receive(chs, c, room, sendCh, receiveCh, wg)
 	go s.send(chs, c, receiveCh, sendCh, wg)
 
 	wg.Wait()
@@ -171,12 +183,12 @@ func (s *GRPCChatterServer) Chat(chs proto.GRPCChatter_ChatServer) error {
 	close(receiveCh)
 	close(sendCh)
 
-	s.removeClient(c.name)
+	s.removeClientFromRoom(c, room)
 
 	return nil
 }
 
-func (s *GRPCChatterServer) receive(chs proto.GRPCChatter_ChatServer, c *client, sendStopCh chan<- struct{}, receiveStopCh <-chan struct{}, wg *sync.WaitGroup) {
+func (s *GRPCChatterServer) receive(chs proto.GRPCChatter_ChatServer, c *client, r *room, sendStopCh chan<- struct{}, receiveStopCh <-chan struct{}, wg *sync.WaitGroup) {
 	defer wg.Done()
 
 	for {
@@ -205,7 +217,7 @@ func (s *GRPCChatterServer) receive(chs proto.GRPCChatter_ChatServer, c *client,
 			logger.Info(fmt.Sprintf("Received message: {Sender: %s; Body: %s} from client [UserName: %s]", msg.sender, msg.body, c.name))
 
 			s.mu.Lock()
-			for _, client := range s.clients {
+			for _, client := range r.clients {
 				if client.name != c.name {
 					client.messageQueue <- msg
 				}
@@ -239,27 +251,25 @@ func (s *GRPCChatterServer) send(chs proto.GRPCChatter_ChatServer, c *client, se
 	}
 }
 
-func (s *GRPCChatterServer) addClient(c *client) {
-	s.mu.Lock()
-	s.clients = append(s.clients, c)
-	s.mu.Unlock()
+func (s *GRPCChatterServer) addClientToRoom(c *client, r *room) {
+	r.clients = append(r.clients, c)
 
-	logger.Debug(fmt.Sprintf("Added client [UserName: %s] to server client's list", c.name))
+	logger.Debug(fmt.Sprintf("Added client [UserName: %s] to chat room client's list with code [%s]", c.name, r.shortCode))
 }
 
-func (s *GRPCChatterServer) removeClient(name string) {
+func (s *GRPCChatterServer) removeClientFromRoom(c *client, r *room) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	for i, c := range s.clients {
-		if c.name == name {
-			s.clients = append(s.clients[:i], s.clients[i+1:]...)
+	for i, client := range r.clients {
+		if client.name == c.name {
+			r.clients = append(r.clients[:i], r.clients[i+1:]...)
 
-			logger.Debug(fmt.Sprintf("Removed client [UserName: %s] from server client's list", name))
+			logger.Debug(fmt.Sprintf("Removed client [UserName: %s] from chat room client's list with code [%s]", c.name, r.shortCode))
 
 			break
 		}
 	}
 
-	logger.Debug(fmt.Sprintf("Client [UserName: %s] was not found in the server's client list and was not removed", name))
+	logger.Debug(fmt.Sprintf("Client [UserName: %s] was not found in the chat room client's list with code [%s] and was not removed", c.name, r.shortCode))
 }
