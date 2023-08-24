@@ -120,6 +120,8 @@ func (s *GRPCChatterServer) ListenAndServe() error {
 
 // CreateChatRoom is an RPC handler that creates a new chat room.
 func (s *GRPCChatterServer) CreateChatRoom(ctx context.Context, req *proto.CreateChatRoomRequest) (*proto.CreateChatRoomResponse, error) {
+	logger.Info(fmt.Sprintf("Received RPC CreateChatRoom request [{RoomName: %s, RoomPassword: %s}]", req.GetRoomName(), req.GetRoomPassword()))
+
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -134,6 +136,8 @@ func (s *GRPCChatterServer) CreateChatRoom(ctx context.Context, req *proto.Creat
 
 // JoinChatRoom is an RPC handler that allows a user to join an existing chat room.
 func (s *GRPCChatterServer) JoinChatRoom(ctx context.Context, req *proto.JoinChatRoomRequest) (*proto.JoinChatRoomResponse, error) {
+	logger.Info(fmt.Sprintf("Received RPC JoinChatRoom request [{UserName: %s, ShortCode: %s, RoomPassword: %s}]", req.GetUserName(), req.GetShortCode(), req.GetRoomPassword()))
+
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -191,6 +195,8 @@ func (s *GRPCChatterServer) Chat(chs proto.GRPCChatter_ChatServer) error {
 
 	// TODO: Check userName permssions to the shortCode room based on the provided token
 
+	logger.Info(fmt.Sprintf("Client [UserName: %s] established message stream with the chat room with short code [%s] using token [%s]", userName, roomShortCode, userToken))
+
 	s.mu.RLock()
 	room := s.rooms[shortCode(roomShortCode)]
 
@@ -201,8 +207,6 @@ func (s *GRPCChatterServer) Chat(chs proto.GRPCChatter_ChatServer) error {
 			break
 		}
 	}
-
-	logger.Info(fmt.Sprintf("Client [UserName: %s] established message stream with the chat room with short code [%s] using token [%s]", c.name, roomShortCode, userToken))
 
 	wg := &sync.WaitGroup{}
 	wg.Add(2)
@@ -253,7 +257,7 @@ func (s *GRPCChatterServer) receive(chs proto.GRPCChatter_ChatServer, c *client,
 				body:   mssg.Body,
 			}
 
-			logger.Info(fmt.Sprintf("Received message [{Sender: %s; Body: %s}] from client [UserName: %s] in chat room with short code [%s]", msg.sender, msg.body, c.name, roomShortCode))
+			logger.Info(fmt.Sprintf("Received message [{Sender: %s, Body: %s}] from client [UserName: %s] in chat room with short code [%s]", msg.sender, msg.body, c.name, roomShortCode))
 
 			s.mu.RLock()
 			for _, client := range r.clients {
@@ -286,7 +290,7 @@ func (s *GRPCChatterServer) send(chs proto.GRPCChatter_ChatServer, c *client, r 
 				return
 			}
 
-			logger.Info(fmt.Sprintf("Sent message [{Sender: %s; Body: %s}] to client [UserName: %s] in chat room with short code [%s]", msg.sender, msg.body, c.name, roomShortCode))
+			logger.Info(fmt.Sprintf("Sent message [{Sender: %s, Body: %s}] to client [UserName: %s] in chat room with short code [%s]", msg.sender, msg.body, c.name, roomShortCode))
 		}
 	}
 }
@@ -300,7 +304,7 @@ func (s *GRPCChatterServer) addRoom(shortCode shortCode, name, password string) 
 		clients:   make([]*client, 0),
 	}
 
-	logger.Info(fmt.Sprintf("Created room [%s] with short code [%s]", name, shortCode))
+	logger.Info(fmt.Sprintf("Created room [%s] with short code [%s] and password [%s]", name, shortCode, password))
 }
 
 // It should be called with the s.mu read-write mutex locked.
