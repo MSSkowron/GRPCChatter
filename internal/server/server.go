@@ -23,7 +23,6 @@ const (
 	DefaultAddress = ""
 	// DefaultMaxMessageQueueSize is the default max size of the message queue that is used to store messages to be sent to clients.
 	DefaultMaxMessageQueueSize = 255
-	shortCodeLength            = 6
 	grpcHeaderTokenKey         = "token"
 )
 
