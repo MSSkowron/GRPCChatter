@@ -1,6 +1,16 @@
 package services
 
-import "github.com/MSSkowron/GRPCChatter/pkg/token"
+import (
+	"errors"
+	"fmt"
+
+	"github.com/MSSkowron/GRPCChatter/pkg/token"
+)
+
+var (
+	// ErrInvalidToken is returned when the token is invalid.
+	ErrInvalidToken = errors.New("invalid token")
+)
 
 // TokenService is an interface that defines the methods required for token management.
 type TokenService interface {
@@ -33,17 +43,36 @@ func NewTokenService(secret string) *TokenServiceImpl {
 }
 
 func (s *TokenServiceImpl) GenerateToken(username, shortCode string) (string, error) {
-	return token.Generate(username, shortCode, s.secret)
+	token, err := token.Generate(username, shortCode, s.secret)
+	if err != nil {
+		return "", fmt.Errorf("failed to generate token: %w", err)
+	}
+
+	return token, nil
 }
 
 func (s *TokenServiceImpl) ValidateToken(t string) error {
-	return token.Validate(t, s.secret)
+	if err := token.Validate(t, s.secret); err != nil {
+		return ErrInvalidToken
+	}
+
+	return nil
 }
 
 func (s *TokenServiceImpl) GetUserNameFromToken(t string) (string, error) {
-	return token.GetClaim(t, s.secret, token.ClaimUserNameKey)
+	userName, err := token.GetClaim(t, s.secret, token.ClaimUserNameKey)
+	if err != nil {
+		return "", ErrInvalidToken
+	}
+
+	return userName, nil
 }
 
 func (s *TokenServiceImpl) GetShortCodeFromToken(t string) (string, error) {
-	return token.GetClaim(t, s.secret, token.ClaimShortCodeKey)
+	shortCode, err := token.GetClaim(t, s.secret, token.ClaimShortCodeKey)
+	if err != nil {
+		return "", ErrInvalidToken
+	}
+
+	return shortCode, nil
 }
