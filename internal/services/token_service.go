@@ -2,12 +2,22 @@ package services
 
 import "github.com/MSSkowron/GRPCChatter/pkg/token"
 
-// TokenService is an interface that defines the methods that the TokenService must implement.
+// TokenService is an interface that defines the methods required for token management.
 type TokenService interface {
-	GenerateToken(string, string) (string, error)
-	ValidateToken(string) error
-	GetUserNameFromToken(string) (string, error)
-	GetShortCodeFromToken(string) (string, error)
+	// GenerateToken generates a token for a given username and short code.
+	// It returns the generated token and an error if the generation fails.
+	GenerateToken(username, shortCode string) (string, error)
+
+	// ValidateToken validates a token and returns an error if it's invalid.
+	ValidateToken(token string) error
+
+	// GetUserNameFromToken retrieves the username from a token.
+	// It returns the username and an error if the retrieval fails.
+	GetUserNameFromToken(token string) (string, error)
+
+	// GetShortCodeFromToken retrieves the short code from a token.
+	// It returns the short code and an error if the retrieval fails.
+	GetShortCodeFromToken(token string) (string, error)
 }
 
 // TokenServiceImpl implements the TokenService interface.
@@ -15,29 +25,25 @@ type TokenServiceImpl struct {
 	secret string
 }
 
-// NewTokenService creates a new TokenServiceImpl.
-func NewTokenService(sercret string) *TokenServiceImpl {
+// NewTokenService creates a new TokenServiceImpl instance with the provided secret.
+func NewTokenService(secret string) *TokenServiceImpl {
 	return &TokenServiceImpl{
-		secret: sercret,
+		secret: secret,
 	}
 }
 
-// GenerateToken generates a token.
-func (s *TokenServiceImpl) GenerateToken(userName, shortCode string) (string, error) {
-	return token.Generate(userName, shortCode, s.secret)
+func (s *TokenServiceImpl) GenerateToken(username, shortCode string) (string, error) {
+	return token.Generate(username, shortCode, s.secret)
 }
 
-// ValidateToken validates a token.
 func (s *TokenServiceImpl) ValidateToken(t string) error {
 	return token.Validate(t, s.secret)
 }
 
-// GetUserNameFromToken retrieves the user name from a token.
 func (s *TokenServiceImpl) GetUserNameFromToken(t string) (string, error) {
 	return token.GetClaim(t, s.secret, token.ClaimUserNameKey)
 }
 
-// GetShortCodeFromToken retrieves the short code from a token.
 func (s *TokenServiceImpl) GetShortCodeFromToken(t string) (string, error) {
 	return token.GetClaim(t, s.secret, token.ClaimShortCodeKey)
 }
