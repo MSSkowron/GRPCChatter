@@ -9,8 +9,8 @@ import (
 	"strconv"
 	"sync"
 
+	"github.com/MSSkowron/GRPCChatter/internal/services"
 	"github.com/MSSkowron/GRPCChatter/pkg/logger"
-	"github.com/MSSkowron/GRPCChatter/pkg/token"
 	"github.com/MSSkowron/GRPCChatter/proto/gen/proto"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -33,11 +33,11 @@ const (
 type GRPCChatterServer struct {
 	proto.UnimplementedGRPCChatterServer
 
+	tokenService services.TokenService
+
 	address             string
 	port                int
 	maxMessageQueueSize int
-
-	secret string
 
 	mu    sync.RWMutex
 	rooms map[shortCode]*room
@@ -64,12 +64,12 @@ type message struct {
 }
 
 // NewGRPCChatterServer creates a new GRPCChatter server.
-func NewGRPCChatterServer(secret string, opts ...Opt) *GRPCChatterServer {
+func NewGRPCChatterServer(tokenService services.TokenService, opts ...Opt) *GRPCChatterServer {
 	server := &GRPCChatterServer{
+		tokenService:        tokenService,
 		address:             DefaultAddress,
 		port:                DefaultPort,
 		maxMessageQueueSize: DefaultMaxMessageQueueSize,
-		secret:              secret,
 		rooms:               make(map[shortCode]*room),
 	}
 
@@ -174,7 +174,7 @@ func (s *GRPCChatterServer) JoinChatRoom(ctx context.Context, req *proto.JoinCha
 		messageQueue: make(chan message, s.maxMessageQueueSize),
 	}, room)
 
-	token, err := s.generateUserToken(userName, roomShortCode)
+	token, err := s.tokenService.GenerateToken(userName, roomShortCode)
 	if err != nil {
 		return nil, status.Error(codes.Internal, "Internal server error while generating user token.")
 	}
@@ -197,16 +197,16 @@ func (s *GRPCChatterServer) Chat(chs proto.GRPCChatter_ChatServer) error {
 	}
 	userToken := tokens[0]
 
-	if err := s.validateUserToken(userToken); err != nil {
+	if err := s.tokenService.ValidateToken(userToken); err != nil {
 		return status.Error(codes.Unauthenticated, "Invalid authentication token. Please provide a valid token.")
 	}
 
-	roomShortCode, err := s.getShortCodeFromToken(userToken)
+	roomShortCode, err := s.tokenService.GetShortCodeFromToken(userToken)
 	if err != nil {
 		return status.Error(codes.Unauthenticated, "Invalid room short code in the token payload. Please ensure the token is valid.")
 	}
 
-	userName, err := s.getUserNameFromToken(userToken)
+	userName, err := s.tokenService.GetUserNameFromToken(userToken)
 	if err != nil {
 		return status.Error(codes.Unauthenticated, "Invalid user name in the token payload. Please ensure the token is valid.")
 	}
@@ -353,22 +353,6 @@ func (s *GRPCChatterServer) removeClientFromRoom(c *client, r *room) {
 
 func (s *GRPCChatterServer) generateShortCode(roomName string) shortCode {
 	return shortCode(randStr(shortCodeLength))
-}
-
-func (s *GRPCChatterServer) generateUserToken(userName, shortCode string) (string, error) {
-	return token.Generate(userName, shortCode, s.secret)
-}
-
-func (s *GRPCChatterServer) validateUserToken(t string) error {
-	return token.Validate(t, s.secret)
-}
-
-func (s *GRPCChatterServer) getUserNameFromToken(t string) (string, error) {
-	return token.GetClaim(t, s.secret, token.ClaimUserNameKey)
-}
-
-func (s *GRPCChatterServer) getShortCodeFromToken(t string) (string, error) {
-	return token.GetClaim(t, s.secret, token.ClaimShortCodeKey)
 }
 
 var chars = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890")

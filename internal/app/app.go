@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/MSSkowron/GRPCChatter/internal/server"
+	"github.com/MSSkowron/GRPCChatter/internal/services"
 )
 
 const (
@@ -34,8 +35,10 @@ func ParseConfig() Config {
 func Run() error {
 	config := ParseConfig()
 
+	tokenService := services.NewTokenService(secret)
+
 	server := server.NewGRPCChatterServer(
-		secret,
+		tokenService,
 		server.WithAddress(config.Address),
 		server.WithPort(config.Port),
 		server.WithMaxMessageQueueSize(config.MaxMessageQueueSize),
