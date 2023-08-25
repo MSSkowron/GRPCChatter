@@ -5,11 +5,9 @@ import (
 	"math/big"
 )
 
-type ShortCode string
-
 // ShortCodeService is an interface that defines the methods that the ShortCodeService must implement.
 type ShortCodeService interface {
-	GenerateShortCode(string) ShortCode
+	GenerateShortCode(string) string
 }
 
 // ShortCodeServiceImpl implements the ShortCodeService interface.
@@ -24,8 +22,8 @@ func NewShortCodeService(shortCodeLength int) *ShortCodeServiceImpl {
 	}
 }
 
-func (s *ShortCodeServiceImpl) GenerateShortCode(roomName string) ShortCode {
-	return ShortCode(randStr(s.shortCodeLength))
+func (s *ShortCodeServiceImpl) GenerateShortCode(roomName string) string {
+	return randStr(s.shortCodeLength)
 }
 
 var chars = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890")

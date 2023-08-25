@@ -39,11 +39,11 @@ type GRPCChatterServer struct {
 	maxMessageQueueSize int
 
 	mu    sync.RWMutex
-	rooms map[services.ShortCode]*room
+	rooms map[string]*room
 }
 
 type room struct {
-	shortCode services.ShortCode
+	shortCode string
 	name      string
 	password  string
 
@@ -68,7 +68,7 @@ func NewGRPCChatterServer(tokenService services.TokenService, shortCodeService s
 		address:             DefaultAddress,
 		port:                DefaultPort,
 		maxMessageQueueSize: DefaultMaxMessageQueueSize,
-		rooms:               make(map[services.ShortCode]*room),
+		rooms:               make(map[string]*room),
 	}
 
 	for _, opt := range opts {
@@ -156,9 +156,7 @@ func (s *GRPCChatterServer) JoinChatRoom(ctx context.Context, req *proto.JoinCha
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	shortCode := services.ShortCode(roomShortCode)
-
-	room, ok := s.rooms[shortCode]
+	room, ok := s.rooms[roomShortCode]
 	if !ok {
 		return nil, status.Errorf(codes.NotFound, "Chat room with short code [%s] not found. Please check the provided short code.", roomShortCode)
 	}
@@ -212,7 +210,7 @@ func (s *GRPCChatterServer) Chat(chs proto.GRPCChatter_ChatServer) error {
 	logger.Info(fmt.Sprintf("Client [UserName: %s] established message stream with the chat room with short code [%s] using token [%s]", userName, roomShortCode, userToken))
 
 	s.mu.RLock()
-	room := s.rooms[services.ShortCode(roomShortCode)]
+	room := s.rooms[roomShortCode]
 	if room == nil {
 		return status.Error(codes.NotFound, "Room not found. The requested chat room does not exist.")
 	}
@@ -316,7 +314,7 @@ func (s *GRPCChatterServer) send(chs proto.GRPCChatter_ChatServer, c *client, r 
 }
 
 // It should be called with the s.mu read-write mutex locked.
-func (s *GRPCChatterServer) addRoom(shortCode services.ShortCode, name, password string) {
+func (s *GRPCChatterServer) addRoom(shortCode string, name, password string) {
 	s.rooms[shortCode] = &room{
 		shortCode: shortCode,
 		name:      name,
