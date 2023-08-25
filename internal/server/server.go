@@ -2,9 +2,7 @@ package server
 
 import (
 	"context"
-	cryptorand "crypto/rand"
 	"fmt"
-	"math/big"
 	"net"
 	"strconv"
 	"sync"
@@ -33,20 +31,19 @@ const (
 type GRPCChatterServer struct {
 	proto.UnimplementedGRPCChatterServer
 
-	tokenService services.TokenService
+	tokenService     services.TokenService
+	shortCodeService services.ShortCodeService
 
 	address             string
 	port                int
 	maxMessageQueueSize int
 
 	mu    sync.RWMutex
-	rooms map[shortCode]*room
+	rooms map[services.ShortCode]*room
 }
 
-type shortCode string
-
 type room struct {
-	shortCode shortCode
+	shortCode services.ShortCode
 	name      string
 	password  string
 
@@ -64,13 +61,14 @@ type message struct {
 }
 
 // NewGRPCChatterServer creates a new GRPCChatter server.
-func NewGRPCChatterServer(tokenService services.TokenService, opts ...Opt) *GRPCChatterServer {
+func NewGRPCChatterServer(tokenService services.TokenService, shortCodeService services.ShortCodeService, opts ...Opt) *GRPCChatterServer {
 	server := &GRPCChatterServer{
 		tokenService:        tokenService,
+		shortCodeService:    shortCodeService,
 		address:             DefaultAddress,
 		port:                DefaultPort,
 		maxMessageQueueSize: DefaultMaxMessageQueueSize,
-		rooms:               make(map[shortCode]*room),
+		rooms:               make(map[services.ShortCode]*room),
 	}
 
 	for _, opt := range opts {
@@ -136,7 +134,7 @@ func (s *GRPCChatterServer) CreateChatRoom(ctx context.Context, req *proto.Creat
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	roomShortCode := s.generateShortCode(roomName)
+	roomShortCode := s.shortCodeService.GenerateShortCode(roomName)
 
 	s.addRoom(roomShortCode, roomName, roomPassword)
 
@@ -158,7 +156,7 @@ func (s *GRPCChatterServer) JoinChatRoom(ctx context.Context, req *proto.JoinCha
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	shortCode := shortCode(roomShortCode)
+	shortCode := services.ShortCode(roomShortCode)
 
 	room, ok := s.rooms[shortCode]
 	if !ok {
@@ -214,7 +212,7 @@ func (s *GRPCChatterServer) Chat(chs proto.GRPCChatter_ChatServer) error {
 	logger.Info(fmt.Sprintf("Client [UserName: %s] established message stream with the chat room with short code [%s] using token [%s]", userName, roomShortCode, userToken))
 
 	s.mu.RLock()
-	room := s.rooms[shortCode(roomShortCode)]
+	room := s.rooms[services.ShortCode(roomShortCode)]
 	if room == nil {
 		return status.Error(codes.NotFound, "Room not found. The requested chat room does not exist.")
 	}
@@ -318,7 +316,7 @@ func (s *GRPCChatterServer) send(chs proto.GRPCChatter_ChatServer, c *client, r 
 }
 
 // It should be called with the s.mu read-write mutex locked.
-func (s *GRPCChatterServer) addRoom(shortCode shortCode, name, password string) {
+func (s *GRPCChatterServer) addRoom(shortCode services.ShortCode, name, password string) {
 	s.rooms[shortCode] = &room{
 		shortCode: shortCode,
 		name:      name,
@@ -349,19 +347,4 @@ func (s *GRPCChatterServer) removeClientFromRoom(c *client, r *room) {
 	}
 
 	logger.Info(fmt.Sprintf("Client [UserName: %s] was not found in the chat room client's list with short code [%s] and was not removed", c.name, r.shortCode))
-}
-
-func (s *GRPCChatterServer) generateShortCode(roomName string) shortCode {
-	return shortCode(randStr(shortCodeLength))
-}
-
-var chars = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890")
-
-func randStr(n int) string {
-	b := make([]rune, n)
-	for i := range b {
-		letterIdx, _ := cryptorand.Int(cryptorand.Reader, big.NewInt(int64(len(chars))))
-		b[i] = chars[letterIdx.Int64()]
-	}
-	return string(b)
 }
