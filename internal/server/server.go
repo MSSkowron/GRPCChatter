@@ -126,14 +126,19 @@ func (s *GRPCChatterServer) ListenAndServe() error {
 
 // CreateChatRoom is an RPC handler that creates a new chat room.
 func (s *GRPCChatterServer) CreateChatRoom(ctx context.Context, req *proto.CreateChatRoomRequest) (*proto.CreateChatRoomResponse, error) {
-	logger.Info(fmt.Sprintf("Received RPC CreateChatRoom request [{RoomName: %s, RoomPassword: %s}]", req.GetRoomName(), req.GetRoomPassword()))
+	var (
+		roomName     = req.GetRoomName()
+		roomPassword = req.GetRoomPassword()
+	)
+
+	logger.Info(fmt.Sprintf("Received RPC CreateChatRoom request [{RoomName: %s, RoomPassword: %s}]", roomName, roomPassword))
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	roomShortCode := s.generateShortCode(req.GetRoomName())
+	roomShortCode := s.generateShortCode(roomName)
 
-	s.addRoom(roomShortCode, req.GetRoomName(), req.GetRoomPassword())
+	s.addRoom(roomShortCode, roomName, roomPassword)
 
 	return &proto.CreateChatRoomResponse{
 		ShortCode: string(roomShortCode),
@@ -142,30 +147,36 @@ func (s *GRPCChatterServer) CreateChatRoom(ctx context.Context, req *proto.Creat
 
 // JoinChatRoom is an RPC handler that allows a user to join an existing chat room.
 func (s *GRPCChatterServer) JoinChatRoom(ctx context.Context, req *proto.JoinChatRoomRequest) (*proto.JoinChatRoomResponse, error) {
-	logger.Info(fmt.Sprintf("Received RPC JoinChatRoom request [{UserName: %s, ShortCode: %s, RoomPassword: %s}]", req.GetUserName(), req.GetShortCode(), req.GetRoomPassword()))
+	var (
+		userName      = req.GetUserName()
+		roomShortCode = req.GetShortCode()
+		roomPassword  = req.GetRoomPassword()
+	)
+
+	logger.Info(fmt.Sprintf("Received RPC JoinChatRoom request [{UserName: %s, ShortCode: %s, RoomPassword: %s}]", userName, roomShortCode, roomPassword))
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	roomShortCode := shortCode(req.GetShortCode())
+	shortCode := shortCode(roomShortCode)
 
-	room, ok := s.rooms[roomShortCode]
+	room, ok := s.rooms[shortCode]
 	if !ok {
-		return nil, status.Errorf(codes.NotFound, "Chat room with short code [%s] not found", req.GetShortCode())
+		return nil, status.Errorf(codes.NotFound, "Chat room with short code [%s] not found. Please check the provided short code.", roomShortCode)
 	}
 
-	if req.GetRoomPassword() != room.password {
-		return nil, status.Errorf(codes.PermissionDenied, "Invalid room with short code [%s] password", req.GetShortCode())
+	if roomPassword != room.password {
+		return nil, status.Errorf(codes.PermissionDenied, "Invalid room password for chat room with short code [%s]. Please make sure you have the correct password.", roomShortCode)
 	}
 
 	s.addClientToRoom(&client{
-		name:         req.GetUserName(),
+		name:         userName,
 		messageQueue: make(chan message, s.maxMessageQueueSize),
 	}, room)
 
-	token, err := s.generateUserToken(req.GetUserName(), req.GetShortCode())
+	token, err := s.generateUserToken(userName, roomShortCode)
 	if err != nil {
-		return nil, status.Error(codes.Internal, "Internal server error")
+		return nil, status.Error(codes.Internal, "Internal server error while generating user token.")
 	}
 
 	return &proto.JoinChatRoomResponse{
@@ -177,33 +188,36 @@ func (s *GRPCChatterServer) JoinChatRoom(ctx context.Context, req *proto.JoinCha
 func (s *GRPCChatterServer) Chat(chs proto.GRPCChatter_ChatServer) error {
 	md, ok := metadata.FromIncomingContext(chs.Context())
 	if !ok {
-		return status.Errorf(codes.Unauthenticated, "Missing gRPC headers: %s", grpcHeaderTokenKey)
+		return status.Errorf(codes.Unauthenticated, "Missing gRPC headers: %s. Please include your authentication token in the '%s' gRPC header.", grpcHeaderTokenKey, grpcHeaderTokenKey)
 	}
 
 	tokens := md.Get(grpcHeaderTokenKey)
 	if len(tokens) == 0 {
-		return status.Errorf(codes.Unauthenticated, "Missing gRPC headers: %s", grpcHeaderTokenKey)
+		return status.Errorf(codes.Unauthenticated, "Authentication token missing in gRPC headers. Please include your token in the '%s' gRPC header.", grpcHeaderTokenKey)
 	}
 	userToken := tokens[0]
 
 	if err := s.validateUserToken(userToken); err != nil {
-		return status.Error(codes.Unauthenticated, "Invalid token")
+		return status.Error(codes.Unauthenticated, "Invalid authentication token. Please provide a valid token.")
 	}
 
 	roomShortCode, err := s.getShortCodeFromToken(userToken)
 	if err != nil {
-		return status.Error(codes.Unauthenticated, "Invalid token")
+		return status.Error(codes.Unauthenticated, "Invalid room short code in the token payload. Please ensure the token is valid.")
 	}
 
 	userName, err := s.getUserNameFromToken(userToken)
 	if err != nil {
-		return status.Error(codes.Unauthenticated, "Invalid token")
+		return status.Error(codes.Unauthenticated, "Invalid user name in the token payload. Please ensure the token is valid.")
 	}
 
 	logger.Info(fmt.Sprintf("Client [UserName: %s] established message stream with the chat room with short code [%s] using token [%s]", userName, roomShortCode, userToken))
 
 	s.mu.RLock()
 	room := s.rooms[shortCode(roomShortCode)]
+	if room == nil {
+		return status.Error(codes.NotFound, "Room not found. The requested chat room does not exist.")
+	}
 
 	var c *client
 	for _, client := range room.clients {
@@ -211,6 +225,9 @@ func (s *GRPCChatterServer) Chat(chs proto.GRPCChatter_ChatServer) error {
 			c = client
 			break
 		}
+	}
+	if c == nil {
+		return status.Error(codes.PermissionDenied, "No permission to access this room. You do not have permission to participate in this chat room.")
 	}
 
 	wg := &sync.WaitGroup{}
