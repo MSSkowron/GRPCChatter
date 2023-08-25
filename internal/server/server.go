@@ -347,11 +347,11 @@ func (s *GRPCChatterServer) validateUserToken(t string) error {
 }
 
 func (s *GRPCChatterServer) getUserNameFromToken(t string) (string, error) {
-	return token.GetClaimValue(t, s.secret, token.ClaimUserNameKey)
+	return token.GetClaim(t, s.secret, token.ClaimUserNameKey)
 }
 
 func (s *GRPCChatterServer) getShortCodeFromToken(t string) (string, error) {
-	return token.GetClaimValue(t, s.secret, token.ClaimShortCodeKey)
+	return token.GetClaim(t, s.secret, token.ClaimShortCodeKey)
 }
 
 var chars = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890")
