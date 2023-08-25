@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"strconv"
@@ -171,7 +172,7 @@ func (s *GRPCChatterServer) JoinChatRoom(ctx context.Context, req *proto.JoinCha
 
 	token, err := s.tokenService.GenerateToken(userName, roomShortCode)
 	if err != nil {
-		return nil, status.Error(codes.Internal, "Internal server error while generating user token.")
+		return nil, status.Error(codes.Internal, "Internal server error while generating token.")
 	}
 
 	return &proto.JoinChatRoomResponse{
@@ -193,17 +194,29 @@ func (s *GRPCChatterServer) Chat(chs proto.GRPCChatter_ChatServer) error {
 	userToken := tokens[0]
 
 	if err := s.tokenService.ValidateToken(userToken); err != nil {
-		return status.Error(codes.Unauthenticated, "Invalid authentication token. Please provide a valid token.")
+		if errors.Is(err, services.ErrInvalidToken) {
+			return status.Error(codes.Unauthenticated, "Invalid authentication token. Please provide a valid token.")
+		}
+
+		return status.Error(codes.Internal, "Internal server error while validating token.")
 	}
 
 	roomShortCode, err := s.tokenService.GetShortCodeFromToken(userToken)
 	if err != nil {
-		return status.Error(codes.Unauthenticated, "Invalid room short code in the token payload. Please ensure the token is valid.")
+		if errors.Is(err, services.ErrInvalidToken) {
+			return status.Error(codes.Unauthenticated, "Invalid authentication token. Please provide a valid token.")
+		}
+
+		return status.Error(codes.Internal, "Internal server error while retrieving short code from token.")
 	}
 
 	userName, err := s.tokenService.GetUserNameFromToken(userToken)
 	if err != nil {
-		return status.Error(codes.Unauthenticated, "Invalid user name in the token payload. Please ensure the token is valid.")
+		if errors.Is(err, services.ErrInvalidToken) {
+			return status.Error(codes.Unauthenticated, "Invalid authentication token. Please provide a valid token.")
+		}
+
+		return status.Error(codes.Internal, "Internal server error while retrieving user name from token.")
 	}
 
 	logger.Info(fmt.Sprintf("Client [UserName: %s] established message stream with the chat room with short code [%s] using token [%s]", userName, roomShortCode, userToken))
