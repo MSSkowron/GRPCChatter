@@ -9,9 +9,17 @@ GRPCChatter is a real-time chat application implemented in Go, leveraging gRPC t
 
 ## Architecture Overview
 
-GRPCChatter employs a robust client-server architecture where communication is facilitated through the gRPC framework. Clients establish connections with the server via gRPC bi-directional channels using `GRPCChatter Client`, allowing for real-time, bi-directional message exchange.
+GRPCChatter employs a robust client-server architecture facilitated by the gRPC framework. Clients connect to the server via gRPC.
 
 ![Architecture](./docs/architecture.png)
+
+The architecture of the GRPCChatter Server is designed with a layered approach to ensure a clear separation of responsibilities and promote modularity. The system comprises the following core components:
+
+![Server Architecture](./docs/server_architecture.png)
+
+- **Transport Layer**: Serves as the initial point of contact for incoming requests. It manages incoming RPC requests, handling request authorization and validation before forwarding them to subsequent layer. Its primary responsibilities include request reception and input validation. Processed input is then passed to the Business Logic Layer for further handling. Once handling is complete and the Business Logic Layer returns a result, the Transport Layer interprets it and sends a proper response. The implementation is [**here**](./internal/server).
+
+- **Business Logic Layer**: Responsible for processing input received from the Transport Layer, the Business Logic Layer embodies the fundamental business rules and logic governing the application's functionality. Furthermore, it manages tokens, short codes, rooms, and client management. The implementation is located [**here**](./internal/services).
 
 ## Features
 
@@ -72,7 +80,7 @@ The Server is the core component of the GRPCChatter application, responsible for
 
 ### GRPCChatter Client
 
-The GRPCChatter Client is responsible for managing the client-side logic of the GRPCChatter application. It provides methods for creating chat rooms, joining chat rooms, sending messages, and receiving messages from the server. Client package is located in `/pkg/client`. Below are the methods supported by the client, along with their descriptions:
+The GRPCChatter Client is responsible for managing the client-side logic of the GRPCChatter application. It provides methods for creating chat rooms, joining chat rooms, sending messages, and receiving messages from the server. Client package is located [**here**](./pkg/client). Below are the methods supported by the client, along with their descriptions:
 
 - **CreateChatRoom**: Creates a new chat room with the provided name and password. Upon successful creation, it returns the shortcode of the newly created chat room.
 
