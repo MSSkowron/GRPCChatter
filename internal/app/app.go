@@ -9,8 +9,9 @@ import (
 )
 
 const (
-	secret          = "12345678901234567890123456789012"
-	shortCodeLength = 6
+	secret              = "12345678901234567890123456789012"
+	shortCodeLength     = 6
+	maxMessageQueueSize = 255
 )
 
 // Config holds configuration options for the GRPCChatter server.
@@ -26,7 +27,7 @@ func ParseConfig() Config {
 
 	flag.StringVar(&config.Address, "address", server.DefaultAddress, "GRPCChatter server listening address")
 	flag.IntVar(&config.Port, "port", server.DefaultPort, "GRPCChatter server listening port")
-	flag.IntVar(&config.MaxMessageQueueSize, "queue_size", server.DefaultMaxMessageQueueSize, "GRPCChatter server max message queue size")
+	flag.IntVar(&config.MaxMessageQueueSize, "queue_size", maxMessageQueueSize, "GRPCChatter server max message queue size")
 
 	flag.Parse()
 
@@ -38,13 +39,14 @@ func Run() error {
 
 	tokenService := services.NewTokenService(secret)
 	shortCodeService := services.NewShortCodeService(shortCodeLength)
+	clientsRoomsService := services.NewClientsRoomsServiceImpl(config.MaxMessageQueueSize)
 
 	server := server.NewGRPCChatterServer(
 		tokenService,
 		shortCodeService,
+		clientsRoomsService,
 		server.WithAddress(config.Address),
 		server.WithPort(config.Port),
-		server.WithMaxMessageQueueSize(config.MaxMessageQueueSize),
 	)
 
 	if err := server.ListenAndServe(); err != nil {

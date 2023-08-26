@@ -21,54 +21,30 @@ const (
 	// DefaultPort is the default port the server listens on.
 	DefaultPort = 5000
 	// DefaultAddress is the default address the server listens on.
-	DefaultAddress = ""
-	// DefaultMaxMessageQueueSize is the default max size of the message queue that is used to store messages to be sent to clients.
-	DefaultMaxMessageQueueSize = 255
-	grpcHeaderTokenKey         = "token"
+	DefaultAddress     = ""
+	grpcHeaderTokenKey = "token"
 )
 
 // GRPCChatterServer represents a GRPCChatter server.
 type GRPCChatterServer struct {
 	proto.UnimplementedGRPCChatterServer
 
-	tokenService     services.TokenService
-	shortCodeService services.ShortCodeService
+	tokenService        services.TokenService
+	shortCodeService    services.ShortCodeService
+	clientsRoomsService services.ClientsRoomsService
 
-	address             string
-	port                int
-	maxMessageQueueSize int
-
-	mu    sync.RWMutex
-	rooms map[string]*room
-}
-
-type room struct {
-	shortCode string
-	name      string
-	password  string
-
-	clients []*client
-}
-
-type client struct {
-	name         string
-	messageQueue chan message
-}
-
-type message struct {
-	sender string
-	body   string
+	address string
+	port    int
 }
 
 // NewGRPCChatterServer creates a new GRPCChatter server.
-func NewGRPCChatterServer(tokenService services.TokenService, shortCodeService services.ShortCodeService, opts ...Opt) *GRPCChatterServer {
+func NewGRPCChatterServer(tokenService services.TokenService, shortCodeService services.ShortCodeService, clientsRoomsService services.ClientsRoomsService, opts ...Opt) *GRPCChatterServer {
 	server := &GRPCChatterServer{
 		tokenService:        tokenService,
 		shortCodeService:    shortCodeService,
+		clientsRoomsService: clientsRoomsService,
 		address:             DefaultAddress,
 		port:                DefaultPort,
-		maxMessageQueueSize: DefaultMaxMessageQueueSize,
-		rooms:               make(map[string]*room),
 	}
 
 	for _, opt := range opts {
@@ -95,13 +71,6 @@ func WithPort(port int) Opt {
 	}
 }
 
-// WithMaxMessageQueueSize sets the max size of the message queue that is used to send messages to clients.
-func WithMaxMessageQueueSize(size int) Opt {
-	return func(s *GRPCChatterServer) {
-		s.maxMessageQueueSize = size
-	}
-}
-
 // ListenAndServe starts the server and listens for incoming connections.
 func (s *GRPCChatterServer) ListenAndServe() error {
 	ln, err := net.Listen("tcp", s.address+":"+strconv.Itoa(s.port))
@@ -109,7 +78,7 @@ func (s *GRPCChatterServer) ListenAndServe() error {
 		return fmt.Errorf("failed to create tcp listener on %s:%d: %w", s.address, s.port, err)
 	}
 
-	logger.Info(fmt.Sprintf("Server started listening on %s:%d", s.address, s.port))
+	logger.Info(fmt.Sprintf("Server listening on %s:%d", s.address, s.port))
 
 	grpcServer := grpc.NewServer()
 
@@ -131,12 +100,13 @@ func (s *GRPCChatterServer) CreateChatRoom(ctx context.Context, req *proto.Creat
 
 	logger.Info(fmt.Sprintf("Received RPC CreateChatRoom request [{RoomName: %s, RoomPassword: %s}]", roomName, roomPassword))
 
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
 	roomShortCode := s.shortCodeService.GenerateShortCode(roomName)
 
-	s.addRoom(roomShortCode, roomName, roomPassword)
+	if err := s.clientsRoomsService.CreateRoom(roomShortCode, roomName, roomPassword); err != nil {
+		return nil, status.Error(codes.Internal, "Internal server error while adding user to chat room.")
+	}
+
+	logger.Info(fmt.Sprintf("Created room [%s] with short code [%s]", roomName, roomShortCode))
 
 	return &proto.CreateChatRoomResponse{
 		ShortCode: string(roomShortCode),
@@ -153,27 +123,34 @@ func (s *GRPCChatterServer) JoinChatRoom(ctx context.Context, req *proto.JoinCha
 
 	logger.Info(fmt.Sprintf("Received RPC JoinChatRoom request [{UserName: %s, ShortCode: %s, RoomPassword: %s}]", userName, roomShortCode, roomPassword))
 
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	room, ok := s.rooms[roomShortCode]
-	if !ok {
+	if !s.clientsRoomsService.RoomExists(roomShortCode) {
 		return nil, status.Errorf(codes.NotFound, "Chat room with short code [%s] not found. Please check the provided short code.", roomShortCode)
 	}
 
-	if roomPassword != room.password {
+	if err := s.clientsRoomsService.CheckPassword(roomShortCode, roomPassword); err != nil {
+		if errors.Is(err, services.ErrRoomDoesNotExist) {
+			return nil, status.Errorf(codes.NotFound, "Chat room with short code [%s] not found. Please check the provided short code.", roomShortCode)
+		}
+
 		return nil, status.Errorf(codes.PermissionDenied, "Invalid room password for chat room with short code [%s]. Please make sure you have the correct password.", roomShortCode)
 	}
 
-	s.addClientToRoom(&client{
-		name:         userName,
-		messageQueue: make(chan message, s.maxMessageQueueSize),
-	}, room)
+	if err := s.clientsRoomsService.AddClientToRoom(roomShortCode, userName); err != nil {
+		if errors.Is(err, services.ErrRoomDoesNotExist) {
+			return nil, status.Errorf(codes.NotFound, "Chat room with short code [%s] not found. Please check the provided short code.", roomShortCode)
+		}
+
+		return nil, status.Error(codes.Internal, "Internal server error while adding user to chat room.")
+	}
+
+	logger.Info(fmt.Sprintf("Added client [UserName: %s] to chat room client's list with short code [%s]", userName, roomShortCode))
 
 	token, err := s.tokenService.GenerateToken(userName, roomShortCode)
 	if err != nil {
 		return nil, status.Error(codes.Internal, "Internal server error while generating token.")
 	}
+
+	logger.Info(fmt.Sprintf("Generated token [%s] for client [UserName: %s] to chat room with short code [%s]", token, userName, roomShortCode))
 
 	return &proto.JoinChatRoomResponse{
 		Token: token,
@@ -221,21 +198,20 @@ func (s *GRPCChatterServer) Chat(chs proto.GRPCChatter_ChatServer) error {
 
 	logger.Info(fmt.Sprintf("Client [UserName: %s] established message stream with the chat room with short code [%s] using token [%s]", userName, roomShortCode, userToken))
 
-	s.mu.RLock()
-	room := s.rooms[roomShortCode]
-	if room == nil {
-		return status.Error(codes.NotFound, "Room not found. The requested chat room does not exist.")
+	if !s.clientsRoomsService.RoomExists(roomShortCode) {
+		return status.Errorf(codes.NotFound, "Chat room with short code [%s] not found. Please check the provided short code.", roomShortCode)
 	}
 
-	var c *client
-	for _, client := range room.clients {
-		if client.name == userName {
-			c = client
-			break
-		}
-	}
-	if c == nil {
+	is, err := s.clientsRoomsService.IsClientInRoom(roomShortCode, userName)
+	if !is {
 		return status.Error(codes.PermissionDenied, "No permission to access this room. You do not have permission to participate in this chat room.")
+	}
+	if err != nil {
+		if errors.Is(err, services.ErrRoomDoesNotExist) {
+			return status.Errorf(codes.NotFound, "Chat room with short code [%s] not found. Please check the provided short code.", roomShortCode)
+		}
+
+		return status.Error(codes.Internal, "Internal server error while adding user to chat room.")
 	}
 
 	wg := &sync.WaitGroup{}
@@ -244,26 +220,22 @@ func (s *GRPCChatterServer) Chat(chs proto.GRPCChatter_ChatServer) error {
 	receiveCh := make(chan struct{}, 1)
 	sendCh := make(chan struct{}, 1)
 
-	go s.receive(chs, c, room, sendCh, receiveCh, wg)
-	go s.send(chs, c, room, receiveCh, sendCh, wg)
-	s.mu.RUnlock()
+	go s.receive(chs, userName, roomShortCode, sendCh, receiveCh, wg)
+	go s.send(chs, userName, roomShortCode, receiveCh, sendCh, wg)
 
 	wg.Wait()
 
 	close(receiveCh)
 	close(sendCh)
 
-	s.mu.Lock()
-	s.removeClientFromRoom(c, room)
-	s.mu.Unlock()
+	logger.Info(fmt.Sprintf("Closed message stream with Client [UserName: %s] and the chat room with short code [%s]", userName, roomShortCode))
 
 	return nil
 }
 
-func (s *GRPCChatterServer) receive(chs proto.GRPCChatter_ChatServer, c *client, r *room, sendStopCh chan<- struct{}, receiveStopCh <-chan struct{}, wg *sync.WaitGroup) {
+func (s *GRPCChatterServer) receive(chs proto.GRPCChatter_ChatServer, clientName, roomShortCode string, sendStopCh chan<- struct{}, receiveStopCh <-chan struct{}, wg *sync.WaitGroup) {
 	defer wg.Done()
 
-	roomShortCode := r.shortCode
 	for {
 		select {
 		case <-receiveStopCh:
@@ -272,9 +244,14 @@ func (s *GRPCChatterServer) receive(chs proto.GRPCChatter_ChatServer, c *client,
 			mssg, err := chs.Recv()
 			if err != nil {
 				if status.Code(err) == codes.Canceled {
-					logger.Info(fmt.Sprintf("Client [UserName: %s] left the chat room with short code [%s]", c.name, roomShortCode))
+					logger.Info(fmt.Sprintf("Client [UserName: %s] left the chat room with short code [%s]", clientName, roomShortCode))
+
+					_ = s.clientsRoomsService.RemoveClientFromRoom(roomShortCode, clientName)
+
+					logger.Info(fmt.Sprintf("Removed client [UserName: %s] from chat room client's list with short code [%s]", clientName, roomShortCode))
+
 				} else {
-					logger.Error(fmt.Sprintf("Failed to receive message from client [UserName: %s] in chat room with short code [%s]: %s", c.name, roomShortCode, status.Convert(err).Message()))
+					logger.Error(fmt.Sprintf("Failed to receive message from client [UserName: %s] in chat room with short code [%s]: %s", clientName, roomShortCode, status.Convert(err).Message()))
 				}
 
 				sendStopCh <- struct{}{}
@@ -282,79 +259,51 @@ func (s *GRPCChatterServer) receive(chs proto.GRPCChatter_ChatServer, c *client,
 				return
 			}
 
-			msg := message{
-				sender: c.name,
-				body:   mssg.Body,
-			}
+			body := mssg.GetBody()
 
-			logger.Info(fmt.Sprintf("Received message [{Sender: %s, Body: %s}] from client [UserName: %s] in chat room with short code [%s]", msg.sender, msg.body, c.name, roomShortCode))
+			logger.Info(fmt.Sprintf("Received message [Body: %s] from client [UserName: %s] in chat room with short code [%s]", body, clientName, roomShortCode))
 
-			s.mu.RLock()
-			for _, client := range r.clients {
-				if client.name != c.name {
-					client.messageQueue <- msg
-				}
+			if err := s.clientsRoomsService.BroadcastMessageToRoom(roomShortCode, &services.Message{
+				Sender: clientName,
+				Body:   body,
+			}); err != nil {
+				logger.Error(fmt.Sprintf("Failed to broadcast message from client [UserName: %s] in chat room with short code [%s]: %s", clientName, roomShortCode, status.Convert(err).Message()))
+
+				sendStopCh <- struct{}{}
+
+				return
 			}
-			s.mu.RUnlock()
 		}
 	}
 }
 
-func (s *GRPCChatterServer) send(chs proto.GRPCChatter_ChatServer, c *client, r *room, sendStopCh chan<- struct{}, receiveStopCh <-chan struct{}, wg *sync.WaitGroup) {
+func (s *GRPCChatterServer) send(chs proto.GRPCChatter_ChatServer, clientName, roomShortCode string, sendStopCh chan<- struct{}, receiveStopCh <-chan struct{}, wg *sync.WaitGroup) {
 	defer wg.Done()
 
-	roomShortCode := r.shortCode
 	for {
 		select {
 		case <-receiveStopCh:
 			return
-		case msg := <-c.messageQueue:
+		default:
+			msg, err := s.clientsRoomsService.GetClientMessage(roomShortCode, clientName)
+			if err != nil {
+				sendStopCh <- struct{}{}
+
+				return
+			}
+
 			if err := chs.Send(&proto.ServerMessage{
-				UserName: msg.sender,
-				Body:     msg.body,
+				UserName: msg.Sender,
+				Body:     msg.Body,
 			}); err != nil {
-				logger.Error(fmt.Sprintf("Failed to send message to client [UserName: %s] in chat room with short code [%s]: %s", c.name, roomShortCode, status.Convert(err).Message()))
+				logger.Error(fmt.Sprintf("Failed to send message to client [UserName: %s] in chat room with short code [%s]: %s", clientName, roomShortCode, status.Convert(err).Message()))
 
 				sendStopCh <- struct{}{}
 
 				return
 			}
 
-			logger.Info(fmt.Sprintf("Sent message [{Sender: %s, Body: %s}] to client [UserName: %s] in chat room with short code [%s]", msg.sender, msg.body, c.name, roomShortCode))
+			logger.Info(fmt.Sprintf("Sent message [{Sender: %s, Body: %s}] to client [UserName: %s] in chat room with short code [%s]", msg.Sender, msg.Body, clientName, roomShortCode))
 		}
 	}
-}
-
-// It should be called with the s.mu read-write mutex locked.
-func (s *GRPCChatterServer) addRoom(shortCode string, name, password string) {
-	s.rooms[shortCode] = &room{
-		shortCode: shortCode,
-		name:      name,
-		password:  password,
-		clients:   make([]*client, 0),
-	}
-
-	logger.Info(fmt.Sprintf("Created room [%s] with short code [%s] and password [%s]", name, shortCode, password))
-}
-
-// It should be called with the s.mu read-write mutex locked.
-func (s *GRPCChatterServer) addClientToRoom(c *client, r *room) {
-	r.clients = append(r.clients, c)
-
-	logger.Info(fmt.Sprintf("Added client [UserName: %s] to chat room client's list with short code [%s]", c.name, r.shortCode))
-}
-
-// It should be called with the s.mu read-write mutex locked.
-func (s *GRPCChatterServer) removeClientFromRoom(c *client, r *room) {
-	for i, client := range r.clients {
-		if client.name == c.name {
-			r.clients = append(r.clients[:i], r.clients[i+1:]...)
-
-			logger.Info(fmt.Sprintf("Removed client [UserName: %s] from chat room client's list with short code [%s]", c.name, r.shortCode))
-
-			return
-		}
-	}
-
-	logger.Info(fmt.Sprintf("Client [UserName: %s] was not found in the chat room client's list with short code [%s] and was not removed", c.name, r.shortCode))
 }
