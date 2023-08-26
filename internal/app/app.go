@@ -39,12 +39,12 @@ func Run() error {
 
 	tokenService := services.NewTokenService(secret)
 	shortCodeService := services.NewShortCodeService(shortCodeLength)
-	clientsRoomsService := services.NewClientsRoomsServiceImpl(config.MaxMessageQueueSize)
+	roomService := services.NewRoomService(config.MaxMessageQueueSize)
 
 	server := server.NewGRPCChatterServer(
 		tokenService,
 		shortCodeService,
-		clientsRoomsService,
+		roomService,
 		server.WithAddress(config.Address),
 		server.WithPort(config.Port),
 	)

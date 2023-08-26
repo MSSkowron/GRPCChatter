@@ -29,22 +29,22 @@ const (
 type GRPCChatterServer struct {
 	proto.UnimplementedGRPCChatterServer
 
-	tokenService        services.TokenService
-	shortCodeService    services.ShortCodeService
-	clientsRoomsService services.ClientsRoomsService
+	tokenService     services.TokenService
+	shortCodeService services.ShortCodeService
+	roomService      services.RoomService
 
 	address string
 	port    int
 }
 
 // NewGRPCChatterServer creates a new GRPCChatter server.
-func NewGRPCChatterServer(tokenService services.TokenService, shortCodeService services.ShortCodeService, clientsRoomsService services.ClientsRoomsService, opts ...Opt) *GRPCChatterServer {
+func NewGRPCChatterServer(tokenService services.TokenService, shortCodeService services.ShortCodeService, roomService services.RoomService, opts ...Opt) *GRPCChatterServer {
 	server := &GRPCChatterServer{
-		tokenService:        tokenService,
-		shortCodeService:    shortCodeService,
-		clientsRoomsService: clientsRoomsService,
-		address:             DefaultAddress,
-		port:                DefaultPort,
+		tokenService:     tokenService,
+		shortCodeService: shortCodeService,
+		roomService:      roomService,
+		address:          DefaultAddress,
+		port:             DefaultPort,
 	}
 
 	for _, opt := range opts {
@@ -102,7 +102,7 @@ func (s *GRPCChatterServer) CreateChatRoom(ctx context.Context, req *proto.Creat
 
 	roomShortCode := s.shortCodeService.GenerateShortCode(roomName)
 
-	if err := s.clientsRoomsService.CreateRoom(roomShortCode, roomName, roomPassword); err != nil {
+	if err := s.roomService.CreateRoom(roomShortCode, roomName, roomPassword); err != nil {
 		return nil, status.Error(codes.Internal, "Internal server error while adding user to chat room.")
 	}
 
@@ -123,11 +123,11 @@ func (s *GRPCChatterServer) JoinChatRoom(ctx context.Context, req *proto.JoinCha
 
 	logger.Info(fmt.Sprintf("Received RPC JoinChatRoom request [{UserName: %s, ShortCode: %s, RoomPassword: %s}]", userName, roomShortCode, roomPassword))
 
-	if !s.clientsRoomsService.RoomExists(roomShortCode) {
+	if !s.roomService.RoomExists(roomShortCode) {
 		return nil, status.Errorf(codes.NotFound, "Chat room with short code [%s] not found. Please check the provided short code.", roomShortCode)
 	}
 
-	if err := s.clientsRoomsService.CheckPassword(roomShortCode, roomPassword); err != nil {
+	if err := s.roomService.CheckPassword(roomShortCode, roomPassword); err != nil {
 		if errors.Is(err, services.ErrRoomDoesNotExist) {
 			return nil, status.Errorf(codes.NotFound, "Chat room with short code [%s] not found. Please check the provided short code.", roomShortCode)
 		}
@@ -135,7 +135,7 @@ func (s *GRPCChatterServer) JoinChatRoom(ctx context.Context, req *proto.JoinCha
 		return nil, status.Errorf(codes.PermissionDenied, "Invalid room password for chat room with short code [%s]. Please make sure you have the correct password.", roomShortCode)
 	}
 
-	if err := s.clientsRoomsService.AddClientToRoom(roomShortCode, userName); err != nil {
+	if err := s.roomService.AddUserToRoom(roomShortCode, userName); err != nil {
 		if errors.Is(err, services.ErrRoomDoesNotExist) {
 			return nil, status.Errorf(codes.NotFound, "Chat room with short code [%s] not found. Please check the provided short code.", roomShortCode)
 		}
@@ -143,21 +143,21 @@ func (s *GRPCChatterServer) JoinChatRoom(ctx context.Context, req *proto.JoinCha
 		return nil, status.Error(codes.Internal, "Internal server error while adding user to chat room.")
 	}
 
-	logger.Info(fmt.Sprintf("Added client [UserName: %s] to chat room client's list with short code [%s]", userName, roomShortCode))
+	logger.Info(fmt.Sprintf("Added user [UserName: %s] to chat room user's list with short code [%s]", userName, roomShortCode))
 
 	token, err := s.tokenService.GenerateToken(userName, roomShortCode)
 	if err != nil {
 		return nil, status.Error(codes.Internal, "Internal server error while generating token.")
 	}
 
-	logger.Info(fmt.Sprintf("Generated token [%s] for client [UserName: %s] to chat room with short code [%s]", token, userName, roomShortCode))
+	logger.Info(fmt.Sprintf("Generated token [%s] for user [UserName: %s] to chat room with short code [%s]", token, userName, roomShortCode))
 
 	return &proto.JoinChatRoomResponse{
 		Token: token,
 	}, nil
 }
 
-// Chat is a server-side streaming RPC handler that receives messages from clients and broadcasts them to all other clients.
+// Chat is a server-side streaming RPC handler that receives messages from users and broadcasts them to all other users.
 func (s *GRPCChatterServer) Chat(chs proto.GRPCChatter_ChatServer) error {
 	md, ok := metadata.FromIncomingContext(chs.Context())
 	if !ok {
@@ -196,13 +196,13 @@ func (s *GRPCChatterServer) Chat(chs proto.GRPCChatter_ChatServer) error {
 		return status.Error(codes.Internal, "Internal server error while retrieving user name from token.")
 	}
 
-	logger.Info(fmt.Sprintf("Client [UserName: %s] established message stream with the chat room with short code [%s] using token [%s]", userName, roomShortCode, userToken))
+	logger.Info(fmt.Sprintf("User [UserName: %s] established message stream with the chat room with short code [%s] using token [%s]", userName, roomShortCode, userToken))
 
-	if !s.clientsRoomsService.RoomExists(roomShortCode) {
+	if !s.roomService.RoomExists(roomShortCode) {
 		return status.Errorf(codes.NotFound, "Chat room with short code [%s] not found. Please check the provided short code.", roomShortCode)
 	}
 
-	is, err := s.clientsRoomsService.IsClientInRoom(roomShortCode, userName)
+	is, err := s.roomService.IsUserInRoom(roomShortCode, userName)
 	if !is {
 		return status.Error(codes.PermissionDenied, "No permission to access this room. You do not have permission to participate in this chat room.")
 	}
@@ -228,12 +228,12 @@ func (s *GRPCChatterServer) Chat(chs proto.GRPCChatter_ChatServer) error {
 	close(receiveCh)
 	close(sendCh)
 
-	logger.Info(fmt.Sprintf("Closed message stream with Client [UserName: %s] and the chat room with short code [%s]", userName, roomShortCode))
+	logger.Info(fmt.Sprintf("Closed message stream with user [UserName: %s] and the chat room with short code [%s]", userName, roomShortCode))
 
 	return nil
 }
 
-func (s *GRPCChatterServer) receive(chs proto.GRPCChatter_ChatServer, clientName, roomShortCode string, sendStopCh chan<- struct{}, receiveStopCh <-chan struct{}, wg *sync.WaitGroup) {
+func (s *GRPCChatterServer) receive(chs proto.GRPCChatter_ChatServer, userName, roomShortCode string, sendStopCh chan<- struct{}, receiveStopCh <-chan struct{}, wg *sync.WaitGroup) {
 	defer wg.Done()
 
 	for {
@@ -244,14 +244,14 @@ func (s *GRPCChatterServer) receive(chs proto.GRPCChatter_ChatServer, clientName
 			mssg, err := chs.Recv()
 			if err != nil {
 				if status.Code(err) == codes.Canceled {
-					logger.Info(fmt.Sprintf("Client [UserName: %s] left the chat room with short code [%s]", clientName, roomShortCode))
+					logger.Info(fmt.Sprintf("User [UserName: %s] left the chat room with short code [%s]", userName, roomShortCode))
 
-					_ = s.clientsRoomsService.RemoveClientFromRoom(roomShortCode, clientName)
+					_ = s.roomService.RemoveUserFromRoom(roomShortCode, userName)
 
-					logger.Info(fmt.Sprintf("Removed client [UserName: %s] from chat room client's list with short code [%s]", clientName, roomShortCode))
+					logger.Info(fmt.Sprintf("Removed user [UserName: %s] from chat room user's list with short code [%s]", userName, roomShortCode))
 
 				} else {
-					logger.Error(fmt.Sprintf("Failed to receive message from client [UserName: %s] in chat room with short code [%s]: %s", clientName, roomShortCode, status.Convert(err).Message()))
+					logger.Error(fmt.Sprintf("Failed to receive message from user [UserName: %s] in chat room with short code [%s]: %s", userName, roomShortCode, status.Convert(err).Message()))
 				}
 
 				sendStopCh <- struct{}{}
@@ -261,13 +261,13 @@ func (s *GRPCChatterServer) receive(chs proto.GRPCChatter_ChatServer, clientName
 
 			body := mssg.GetBody()
 
-			logger.Info(fmt.Sprintf("Received message [Body: %s] from client [UserName: %s] in chat room with short code [%s]", body, clientName, roomShortCode))
+			logger.Info(fmt.Sprintf("Received message [Body: %s] from user [UserName: %s] in chat room with short code [%s]", body, userName, roomShortCode))
 
-			if err := s.clientsRoomsService.BroadcastMessageToRoom(roomShortCode, &services.Message{
-				Sender: clientName,
+			if err := s.roomService.BroadcastMessageToRoom(roomShortCode, &services.Message{
+				Sender: userName,
 				Body:   body,
 			}); err != nil {
-				logger.Error(fmt.Sprintf("Failed to broadcast message from client [UserName: %s] in chat room with short code [%s]: %s", clientName, roomShortCode, status.Convert(err).Message()))
+				logger.Error(fmt.Sprintf("Failed to broadcast message from user [UserName: %s] in chat room with short code [%s]: %s", userName, roomShortCode, status.Convert(err).Message()))
 
 				sendStopCh <- struct{}{}
 
@@ -277,7 +277,7 @@ func (s *GRPCChatterServer) receive(chs proto.GRPCChatter_ChatServer, clientName
 	}
 }
 
-func (s *GRPCChatterServer) send(chs proto.GRPCChatter_ChatServer, clientName, roomShortCode string, sendStopCh chan<- struct{}, receiveStopCh <-chan struct{}, wg *sync.WaitGroup) {
+func (s *GRPCChatterServer) send(chs proto.GRPCChatter_ChatServer, userName, roomShortCode string, sendStopCh chan<- struct{}, receiveStopCh <-chan struct{}, wg *sync.WaitGroup) {
 	defer wg.Done()
 
 	for {
@@ -285,7 +285,7 @@ func (s *GRPCChatterServer) send(chs proto.GRPCChatter_ChatServer, clientName, r
 		case <-receiveStopCh:
 			return
 		default:
-			msg, err := s.clientsRoomsService.GetClientMessage(roomShortCode, clientName)
+			msg, err := s.roomService.GetUserMessage(roomShortCode, userName)
 			if err != nil {
 				sendStopCh <- struct{}{}
 
@@ -296,14 +296,14 @@ func (s *GRPCChatterServer) send(chs proto.GRPCChatter_ChatServer, clientName, r
 				UserName: msg.Sender,
 				Body:     msg.Body,
 			}); err != nil {
-				logger.Error(fmt.Sprintf("Failed to send message to client [UserName: %s] in chat room with short code [%s]: %s", clientName, roomShortCode, status.Convert(err).Message()))
+				logger.Error(fmt.Sprintf("Failed to send message to user [UserName: %s] in chat room with short code [%s]: %s", userName, roomShortCode, status.Convert(err).Message()))
 
 				sendStopCh <- struct{}{}
 
 				return
 			}
 
-			logger.Info(fmt.Sprintf("Sent message [{Sender: %s, Body: %s}] to client [UserName: %s] in chat room with short code [%s]", msg.Sender, msg.Body, clientName, roomShortCode))
+			logger.Info(fmt.Sprintf("Sent message [{Sender: %s, Body: %s}] to user [UserName: %s] in chat room with short code [%s]", msg.Sender, msg.Body, userName, roomShortCode))
 		}
 	}
 }
