@@ -6,33 +6,60 @@ import (
 )
 
 var (
-	ErrRoomAlreadyExist       = errors.New("room with the provided short code already exists")
-	ErrRoomDoesNotExist       = errors.New("room not found")
-	ErrInvalidPassword        = errors.New("invalid password")
-	ErrUserAlreadyExists      = errors.New("user with the provided user name already exists in the chat room")
-	ErrUserNotFound           = errors.New("user not found")
+	// ErrRoomAlreadyExist is returned when a room with the provided short code already exists.
+	ErrRoomAlreadyExist = errors.New("room with the provided short code already exists")
+	// ErrRoomDoesNotExist is returned when a requested room is not found.
+	ErrRoomDoesNotExist = errors.New("room not found")
+	// ErrInvalidPassword is returned when a provided password is invalid.
+	ErrInvalidPassword = errors.New("invalid password")
+	// ErrUserAlreadyExists is returned when a user with the provided user name already exists in the chat room.
+	ErrUserAlreadyExists = errors.New("user with the provided user name already exists in the chat room")
+	// ErrUserNotFound is returned when a requested user is not found.
+	ErrUserNotFound = errors.New("user not found")
+	// ErrUserMessageQueueClosed is returned when a user's message queue is closed.
 	ErrUserMessageQueueClosed = errors.New("user message queue is closed")
 )
 
+// Message represents a chat message with a sender and body.
 type Message struct {
+	// Sender is the name of the user who sent the message.
 	Sender string
-	Body   string
+
+	// Body is the content of the message.
+	Body string
 }
 
 // RoomService is an interface that defines the methods required for users and rooms management.
 type RoomService interface {
+	// RoomExists checks if a room with the given short code exists.
 	RoomExists(shortCode string) bool
-	CheckPassword(shortCode string, password string) error
-	CreateRoom(shortCode string, name string, password string) error
+
+	// CheckPassword checks if the provided password matches the room's password.
+	CheckPassword(shortCode, password string) error
+
+	// CreateRoom creates a new chat room with the given short code, name, and password.
+	CreateRoom(shortCode, name, password string) error
+
+	// DeleteRoom deletes a chat room with the given short code.
 	DeleteRoom(shortCode string) error
+
+	// AddUserToRoom adds a user to a chat room with the given short code and user name.
 	AddUserToRoom(shortCode string, userName string) error
+
+	// RemoveUserFromRoom removes a user from a chat room with the given short code and user name.
 	RemoveUserFromRoom(shortCode string, userName string) error
+
+	// IsUserInRoom checks if a user with the given user name is in the chat room with the provided short code.
 	IsUserInRoom(shortCode string, userName string) (bool, error)
+
+	// BroadcastMessageToRoom broadcasts a message to all users in a chat room with the given short code.
 	BroadcastMessageToRoom(shortCode string, message *Message) error
+
+	// GetUserMessage retrieves a message from a user's message queue in a chat room.
 	GetUserMessage(shortCode string, userName string) (*Message, error)
 }
 
-// RoomServiceImpl implements the UserRoomsService interface.
+// RoomServiceImpl implements the RoomService interface.
 type RoomServiceImpl struct {
 	mu                  sync.RWMutex
 	rooms               map[string]*room
@@ -51,7 +78,7 @@ type user struct {
 	messageQueue chan *Message
 }
 
-// NewUserRoomsServiceImpl creates a new UserRoomsServiceImpl instance with the specified short code length.
+// NewRoomService creates a new RoomServiceImpl instance with the specified maximum message queue size.
 func NewRoomService(maxMessageQueueSize int) *RoomServiceImpl {
 	return &RoomServiceImpl{
 		maxMessageQueueSize: maxMessageQueueSize,
@@ -59,6 +86,7 @@ func NewRoomService(maxMessageQueueSize int) *RoomServiceImpl {
 	}
 }
 
+// RoomExists checks if a room with the given short code exists.
 func (crs *RoomServiceImpl) RoomExists(shortCode string) bool {
 	crs.mu.RLock()
 	defer crs.mu.RUnlock()
@@ -67,6 +95,7 @@ func (crs *RoomServiceImpl) RoomExists(shortCode string) bool {
 	return ok
 }
 
+// CheckPassword checks if the provided password matches the room's password.
 func (crs *RoomServiceImpl) CheckPassword(shortCode, password string) error {
 	crs.mu.RLock()
 	defer crs.mu.RUnlock()
@@ -83,6 +112,7 @@ func (crs *RoomServiceImpl) CheckPassword(shortCode, password string) error {
 	return ErrInvalidPassword
 }
 
+// CreateRoom creates a new chat room with the given short code, name, and password.
 func (crs *RoomServiceImpl) CreateRoom(shortCode, name, password string) error {
 	crs.mu.Lock()
 	defer crs.mu.Unlock()
@@ -101,6 +131,7 @@ func (crs *RoomServiceImpl) CreateRoom(shortCode, name, password string) error {
 	return nil
 }
 
+// DeleteRoom deletes a chat room with the given short code.
 func (crs *RoomServiceImpl) DeleteRoom(shortCode string) error {
 	crs.mu.Lock()
 	defer crs.mu.Unlock()
@@ -110,8 +141,8 @@ func (crs *RoomServiceImpl) DeleteRoom(shortCode string) error {
 		return ErrRoomDoesNotExist
 	}
 
-	for _, User := range room.users {
-		close(User.messageQueue)
+	for _, user := range room.users {
+		close(user.messageQueue)
 	}
 
 	delete(crs.rooms, shortCode)
@@ -119,6 +150,7 @@ func (crs *RoomServiceImpl) DeleteRoom(shortCode string) error {
 	return nil
 }
 
+// AddUserToRoom adds a user to a chat room with the given short code and user name.
 func (crs *RoomServiceImpl) AddUserToRoom(shortCode string, userName string) error {
 	crs.mu.Lock()
 	defer crs.mu.Unlock()
@@ -140,6 +172,7 @@ func (crs *RoomServiceImpl) AddUserToRoom(shortCode string, userName string) err
 	return nil
 }
 
+// RemoveUserFromRoom removes a user from a chat room with the given short code and user name.
 func (crs *RoomServiceImpl) RemoveUserFromRoom(shortCode string, userName string) error {
 	crs.mu.Lock()
 	defer crs.mu.Unlock()
@@ -160,6 +193,7 @@ func (crs *RoomServiceImpl) RemoveUserFromRoom(shortCode string, userName string
 	return nil
 }
 
+// IsUserInRoom checks if a user with the given user name is in the chat room with the provided short code.
 func (crs *RoomServiceImpl) IsUserInRoom(shortCode string, userName string) (bool, error) {
 	crs.mu.RLock()
 	defer crs.mu.RUnlock()
@@ -173,6 +207,7 @@ func (crs *RoomServiceImpl) IsUserInRoom(shortCode string, userName string) (boo
 	return ok, nil
 }
 
+// BroadcastMessageToRoom broadcasts a message to all users in a chat room with the given short code.
 func (crs *RoomServiceImpl) BroadcastMessageToRoom(shortCode string, message *Message) error {
 	crs.mu.RLock()
 	defer crs.mu.RUnlock()
@@ -191,6 +226,7 @@ func (crs *RoomServiceImpl) BroadcastMessageToRoom(shortCode string, message *Me
 	return nil
 }
 
+// GetUserMessage retrieves a message from a user's message queue in a chat room.
 func (crs *RoomServiceImpl) GetUserMessage(shortCode string, userName string) (*Message, error) {
 	crs.mu.RLock()
 
