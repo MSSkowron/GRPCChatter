@@ -3,6 +3,8 @@ package services
 import (
 	"errors"
 	"sync"
+
+	"github.com/MSSkowron/BookRESTAPI/pkg/crypto"
 )
 
 var (
@@ -105,8 +107,12 @@ func (crs *RoomServiceImpl) CheckPassword(shortCode, password string) error {
 		return ErrRoomDoesNotExist
 	}
 
-	if room.password == password {
-		return nil
+	if err := crypto.CheckPassword(password, room.password); err != nil {
+		if errors.Is(err, crypto.ErrInvalidCredentials) {
+			return ErrInvalidPassword
+		}
+
+		return err
 	}
 
 	return ErrInvalidPassword
@@ -121,10 +127,15 @@ func (crs *RoomServiceImpl) CreateRoom(shortCode, name, password string) error {
 		return ErrRoomAlreadyExist
 	}
 
+	hashedPassword, err := crypto.HashPassword(password)
+	if err != nil {
+		return err
+	}
+
 	crs.rooms[shortCode] = &room{
 		shortCode: shortCode,
 		name:      name,
-		password:  password,
+		password:  hashedPassword,
 		users:     make(map[string]*user),
 	}
 
