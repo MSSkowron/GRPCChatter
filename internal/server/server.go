@@ -139,6 +139,9 @@ func (s *GRPCChatterServer) JoinChatRoom(ctx context.Context, req *proto.JoinCha
 		if errors.Is(err, services.ErrRoomDoesNotExist) {
 			return nil, status.Errorf(codes.NotFound, "Chat room with short code [%s] not found. Please check the provided short code.", roomShortCode)
 		}
+		if errors.Is(err, services.ErrUserAlreadyExists) {
+			return nil, status.Errorf(codes.AlreadyExists, "User with username [%s] already exists in the chat room with short code [%s].", userName, roomPassword)
+		}
 
 		return nil, status.Error(codes.Internal, "Internal server error while adding user to chat room.")
 	}
