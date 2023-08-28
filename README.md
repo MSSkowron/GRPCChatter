@@ -7,6 +7,12 @@ GRPCChatter is a real-time chat application implemented in Go, leveraging gRPC t
 - Go 1.21
 - gRPC
 
+## Key Dependencies
+
+- **jwt** (<https://github.com/golang-jwt/jwt>): Simplifies JWT token management.
+- **viper** (<https://github.com/spf13/viper>): Manages configurations efficiently.
+- **testify** (<https://github.com/stretchr/testify>): Enhances testing capabilities.
+
 ## Architecture Overview
 
 GRPCChatter employs a robust client-server architecture facilitated by the gRPC framework. Clients connect to the server via gRPC.
