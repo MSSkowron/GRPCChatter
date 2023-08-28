@@ -3,6 +3,7 @@ module github.com/MSSkowron/GRPCChatter
 go 1.21.0
 
 require (
+	github.com/MSSkowron/BookRESTAPI v0.0.0-20230821061817-e4064bc21fe4
 	github.com/golang-jwt/jwt v3.2.2+incompatible
 	github.com/spf13/viper v1.16.0
 	github.com/stretchr/testify v1.8.4
@@ -10,10 +11,7 @@ require (
 	google.golang.org/protobuf v1.31.0
 )
 
-require golang.org/x/crypto v0.11.0 // indirect
-
 require (
-	github.com/MSSkowron/BookRESTAPI v0.0.0-20230821061817-e4064bc21fe4
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/fsnotify/fsnotify v1.6.0 // indirect
 	github.com/golang/protobuf v1.5.3 // indirect
@@ -27,6 +25,7 @@ require (
 	github.com/spf13/jwalterweatherman v1.1.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/subosito/gotenv v1.4.2 // indirect
+	golang.org/x/crypto v0.11.0 // indirect
 	golang.org/x/net v0.10.0 // indirect
 	golang.org/x/sys v0.10.0 // indirect
 	golang.org/x/text v0.11.0 // indirect
