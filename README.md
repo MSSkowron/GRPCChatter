@@ -99,7 +99,7 @@ The GRPCChatter Client is responsible for managing the client-side logic of the 
 
 - **JoinChatRoom**: Connects the client to a specific chat room, enabling message reception and transmission. If the client is not connected, it establishes a connection, joins the chat room, and sets up a bidirectional stream for communication.
 
-- **ListChatRoomUsers**: Retrieves a list of users currently present in a chat room based on the provided short access code. This method is useful for listing all users currently online in a specific chat room.
+- **ListChatRoomUsers**: Retrieves a list of users currently present in a chat room based on the provided short access code. This method is useful for listing all users currently online in a specific chat room. The JoinChatRoom method must be called before the first usage.
 
 - **Send**: Sends a message to the server. It blocks until the message is sent or returns immediately if an error occurred. The JoinChatRoom method must be called before the first usage.
 

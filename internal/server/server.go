@@ -163,6 +163,11 @@ func (s *GRPCChatterServer) JoinChatRoom(ctx context.Context, req *proto.JoinCha
 	}, nil
 }
 
+// ListChatRoomUsers is an RPC handler that lists the users in a chat room.
+func (s *GRPCChatterServer) ListChatRoomUsers(context.Context, *proto.ListChatRoomUsersRequest) (*proto.ListChatRoomUsersResponse, error) {
+	return nil, nil
+}
+
 // Chat is a server-side streaming RPC handler that receives messages from users and broadcasts them to all other users.
 func (s *GRPCChatterServer) Chat(chs proto.GRPCChatter_ChatServer) error {
 	md, ok := metadata.FromIncomingContext(chs.Context())

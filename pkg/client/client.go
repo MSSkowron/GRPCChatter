@@ -32,6 +32,7 @@ type Client struct {
 	conn       *grpc.ClientConn
 	grpcClient proto.GRPCChatterClient
 	stream     proto.GRPCChatter_ChatClient
+	token      string
 
 	receiveQueue chan Message
 	sendQueue    chan string
@@ -106,8 +107,10 @@ func (c *Client) JoinChatRoom(shortCode string, password string) error {
 		return fmt.Errorf("failed to join the chat room: %w", err)
 	}
 
+	c.token = resp.GetToken()
+
 	md := metadata.New(map[string]string{
-		"token": resp.GetToken(),
+		"token": c.token,
 	})
 	ctx := metadata.NewOutgoingContext(context.Background(), md)
 	stream, err := c.grpcClient.Chat(ctx)
@@ -126,6 +129,12 @@ func (c *Client) JoinChatRoom(shortCode string, password string) error {
 	go c.send()
 	go c.receive()
 
+	return nil
+}
+
+// ListChatRoomUsers retrieves the list of users in the currently joined chat room.
+// The JoinChatRoom() method must be called before the first usage.
+func (c *Client) ListChatRoomUsers() error {
 	return nil
 }
 
