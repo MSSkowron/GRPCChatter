@@ -87,7 +87,9 @@ The Server is the core component of the GRPCChatter application, responsible for
 
 - **JoinChatRoom**: Allow clients to join existing chat rooms by providing the room's short access code and the associated password. After successful authentication, it returns a JSON Web Token (JWT) that contains two essential values in its payload: `userName` and `shortCode`. This JWT is crucial for facilitating communication within the room.
 
-- **Chat**: Establishes a bidirectional streaming connection, enabling real-time chat between clients and the server. Clients can send messages to the server, and the server responds with incoming messages. To use this method, clients must attach a gRPC header with the key `token`, containing a valid JSON Web Token acquired from the JoinChatRoom method. This mechanism ensures continuous and secure communication within the chat room.
+- **ListChatRoomUsers**: Retrieves a list of users currently present in a chat room based on the provided short access code. This method is useful for listing all users currently online in a specific chat room. To use this method, clients must attach a gRPC header with the key `token`, containing a valid JSON Web Token acquired from the JoinChatRoom method.
+
+- **Chat**: Establishes a bidirectional streaming connection, enabling real-time chat between clients and the server. Clients can send messages to the server, and the server responds with incoming messages. To use this method, clients must attach a gRPC header with the key `token`, containing a valid JSON Web Token acquired from the JoinChatRoom method.
 
 ### GRPCChatter Client
 
@@ -96,6 +98,8 @@ The GRPCChatter Client is responsible for managing the client-side logic of the 
 - **CreateChatRoom**: Creates a new chat room with the provided name and password. Upon successful creation, it returns the shortcode of the newly created chat room.
 
 - **JoinChatRoom**: Connects the client to a specific chat room, enabling message reception and transmission. If the client is not connected, it establishes a connection, joins the chat room, and sets up a bidirectional stream for communication.
+
+- **ListChatRoomUsers**: Retrieves a list of users currently present in a chat room based on the provided short access code. This method is useful for listing all users currently online in a specific chat room.
 
 - **Send**: Sends a message to the server. It blocks until the message is sent or returns immediately if an error occurred. The JoinChatRoom method must be called before the first usage.
 

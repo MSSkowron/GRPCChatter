@@ -23,6 +23,18 @@ message JoinChatRoomResponse {
     string token = 1;
 }
 
+message User {
+    string user_name = 1;
+}
+
+message ListChatRoomUsersRequest {
+    string short_code = 1;
+}
+
+message ListChatRoomUsersResponse {
+    repeated User users = 1;
+}
+
 message ClientMessage {
     string body = 1;
 }
@@ -35,5 +47,6 @@ message ServerMessage {
 service GRPCChatter {
     rpc CreateChatRoom(CreateChatRoomRequest) returns (CreateChatRoomResponse) {};
     rpc JoinChatRoom(JoinChatRoomRequest) returns (JoinChatRoomResponse) {};
+    rpc ListChatRoomUsers(ListChatRoomUsersRequest) returns (ListChatRoomUsersResponse) {};
     rpc Chat(stream ClientMessage) returns (stream ServerMessage) {};
 }
