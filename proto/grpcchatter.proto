@@ -27,9 +27,7 @@ message User {
     string user_name = 1;
 }
 
-message ListChatRoomUsersRequest {
-    string short_code = 1;
-}
+message ListChatRoomUsersRequest {}
 
 message ListChatRoomUsersResponse {
     repeated User users = 1;

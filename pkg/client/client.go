@@ -262,6 +262,7 @@ func (c *Client) close() {
 	c.conn = nil
 	c.grpcClient = nil
 	c.stream = nil
+	c.token = ""
 }
 
 // Disconnect gracefully disconnects the client from the server, closing the connection with the server.

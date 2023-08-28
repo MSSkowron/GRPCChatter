@@ -51,6 +51,9 @@ type RoomService interface {
 	// RemoveUserFromRoom removes a user from a chat room with the given short code and user name.
 	RemoveUserFromRoom(shortCode string, userName string) error
 
+	// GetRoomUsers retrieves the list of user names currently in a chat room with the provided short code.
+	GetRoomUsers(shortCode string) ([]string, error)
+
 	// IsUserInRoom checks if a user with the given user name is in the chat room with the provided short code.
 	IsUserInRoom(shortCode string, userName string) (bool, error)
 
@@ -202,6 +205,24 @@ func (crs *RoomServiceImpl) RemoveUserFromRoom(shortCode string, userName string
 	delete(room.users, userName)
 
 	return nil
+}
+
+// GetRoomUsers retrieves the list of user names currently in a chat room with the provided short code.
+func (crs *RoomServiceImpl) GetRoomUsers(shortCode string) ([]string, error) {
+	crs.mu.RLock()
+	defer crs.mu.RUnlock()
+
+	room, ok := crs.rooms[shortCode]
+	if !ok {
+		return nil, ErrRoomDoesNotExist
+	}
+
+	users := make([]string, 0, len(room.users))
+	for userName := range room.users {
+		users = append(users, userName)
+	}
+
+	return users, nil
 }
 
 // IsUserInRoom checks if a user with the given user name is in the chat room with the provided short code.
