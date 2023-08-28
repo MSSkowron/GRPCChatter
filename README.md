@@ -12,7 +12,7 @@ GRPCChatter is a real-time chat application implemented in Go, leveraging gRPC t
 - **jwt** (<https://pkg.go.dev/github.com/golang-jwt/jwt>): Simplifies JWT token management.
 - **viper** (<https://pkg.go.dev/github.com/spf13/viper>): Manages configurations efficiently.
 - **testify** (<https://pkg.go.dev/github.com/stretchr/testify>): Enhances testing capabilities.
-- **crypto** (<https://pkg.go.dev/github.com/MSSkowron/BookRESTAPI/pkg/crypto>): Utilized for bcrypt hashing.
+- **crypto** (<https://pkg.go.dev/github.com/MSSkowron/BookRESTAPI/pkg/crypto>): Utilized for password hashing.
 
 ## Architecture Overview
 
