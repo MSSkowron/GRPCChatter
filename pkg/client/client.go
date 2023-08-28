@@ -17,6 +17,8 @@ var (
 	ErrConnectionNotExists = errors.New("connection with the server does not exist")
 	// ErrStreamNotExists is returned when attempting an operation on a non-existent server stream.
 	ErrStreamNotExists = errors.New("stream with the server does not exist")
+	// ErrEmptyToken is returned when client token is empty.
+	ErrEmptyToken = errors.New("token is empty")
 	// ErrAlreadyJoined is returned when a client attempts to join the chat server more than once.
 	ErrAlreadyJoined = errors.New("client is already joined to a chat room")
 	// ErrConnectionClosed is returned when a connection with the server has been closed.
@@ -134,8 +136,39 @@ func (c *Client) JoinChatRoom(shortCode string, password string) error {
 
 // ListChatRoomUsers retrieves the list of users in the currently joined chat room.
 // The JoinChatRoom() method must be called before the first usage.
-func (c *Client) ListChatRoomUsers() error {
-	return nil
+func (c *Client) ListChatRoomUsers() ([]string, error) {
+	c.mu.RLock()
+	if c.conn == nil {
+		c.mu.RUnlock()
+		return nil, ErrConnectionNotExists
+	}
+
+	if c.stream == nil {
+		c.mu.RUnlock()
+		return nil, ErrStreamNotExists
+	}
+
+	if c.token == "" {
+		c.mu.RUnlock()
+		return nil, ErrEmptyToken
+	}
+	c.mu.RUnlock()
+
+	md := metadata.New(map[string]string{
+		"token": c.token,
+	})
+	ctx := metadata.NewOutgoingContext(context.Background(), md)
+	resp, err := c.grpcClient.ListChatRoomUsers(ctx, &proto.ListChatRoomUsersRequest{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to list the chat room users: %w", err)
+	}
+
+	users := make([]string, len(resp.Users))
+	for _, user := range resp.GetUsers() {
+		users = append(users, user.GetUserName())
+	}
+
+	return users, nil
 }
 
 // Send sends a message to the server.
