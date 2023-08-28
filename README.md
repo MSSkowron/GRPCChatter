@@ -57,15 +57,19 @@ To start using GRPCChatter, follow these steps to run the server:
     go run ./cmd/grpcchatter/main.go
     ```
 
-    You can use the following flags to configure the server:
-    - **--address**: The address at which the server listens.
-    - **--port**: The port on which the server listens.
-    - **--queue_size**: The maximum size of the message queue that is used to store messages to be sent to clients.
+    Optionally, you can use the **--config** flag to specify a configuration file path. The provided configuration file should be in the **.env** format. If you don't provide any configuration, the [**default**](./configs/default_config.env) configuration will be used.
 
-    Example of flags usage:
+    You can configure the following values in your configuration file:
+    - **SERVER_ADDRESS**: The IP address where the server will listen.
+    - **SERVER_PORT**: The port on which the server will listen.
+    - **SECRET**: Secret key used for JWT token signing and validation.
+    - **SHORT_CODE_LENGTH**: The length of generated room short codes.
+    - **MAX_MESSAGE_QUEUE_SIZE**: The maximum size of the message queue used to store messages to be sent to clients.
+
+    Example of flag usage with a custom configuration file:
 
     ```
-    go run ./cmd/grpcchatter/main.go --address "127.0.0.1" --port 5001 --queue_size 500
+    go run ./cmd/grpcchatter/main.go --config "./configs/my_config.env"
     ```
 
 ### GRPCChatter Server

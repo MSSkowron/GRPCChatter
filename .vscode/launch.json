@@ -7,6 +7,10 @@
             "request": "launch",
             "mode": "debug",
             "program": "${workspaceFolder}/cmd/grpcchatter/main.go",
+            "args": [
+                "--configFile",
+                "${workspaceFolder}/configs/default_config.env"
+            ]
         }
     ]
 }
