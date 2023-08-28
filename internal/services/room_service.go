@@ -115,7 +115,7 @@ func (crs *RoomServiceImpl) CheckPassword(shortCode, password string) error {
 		return err
 	}
 
-	return ErrInvalidPassword
+	return nil
 }
 
 // CreateRoom creates a new chat room with the given short code, name, and password.
