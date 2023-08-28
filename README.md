@@ -105,8 +105,8 @@ The GRPCChatter Client is responsible for managing the client-side logic of the 
 
 ## Example
 
-An example client's code is provided [**here**](./examples/client_cli/main.go).
-This example demonstrates the usage of the client package.
+You can find an example client code in the [**client_cli**](./examples/client_cli/main.go) directory.
+This demonstrates the usage of the client package through a CLI application.
 
 ![Example](./docs/examples_client_cli.png)
 
