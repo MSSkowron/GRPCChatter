@@ -81,7 +81,6 @@ func (s *GRPCChatterServer) ListenAndServe() error {
 	logger.Info(fmt.Sprintf("Server listening on %s:%d", s.address, s.port))
 
 	grpcServer := grpc.NewServer()
-
 	proto.RegisterGRPCChatterServer(grpcServer, s)
 
 	if err := grpcServer.Serve(ln); err != nil {
@@ -93,10 +92,8 @@ func (s *GRPCChatterServer) ListenAndServe() error {
 
 // CreateChatRoom is an RPC handler that creates a new chat room.
 func (s *GRPCChatterServer) CreateChatRoom(ctx context.Context, req *proto.CreateChatRoomRequest) (*proto.CreateChatRoomResponse, error) {
-	var (
-		roomName     = req.GetRoomName()
-		roomPassword = req.GetRoomPassword()
-	)
+	roomName := req.GetRoomName()
+	roomPassword := req.GetRoomPassword()
 
 	logger.Info(fmt.Sprintf("Received RPC CreateChatRoom request [{RoomName: %s, RoomPassword: %s}]", roomName, roomPassword))
 
@@ -115,11 +112,9 @@ func (s *GRPCChatterServer) CreateChatRoom(ctx context.Context, req *proto.Creat
 
 // JoinChatRoom is an RPC handler that allows a user to join an existing chat room.
 func (s *GRPCChatterServer) JoinChatRoom(ctx context.Context, req *proto.JoinChatRoomRequest) (*proto.JoinChatRoomResponse, error) {
-	var (
-		userName      = req.GetUserName()
-		roomShortCode = req.GetShortCode()
-		roomPassword  = req.GetRoomPassword()
-	)
+	userName := req.GetUserName()
+	roomShortCode := req.GetShortCode()
+	roomPassword := req.GetRoomPassword()
 
 	logger.Info(fmt.Sprintf("Received RPC JoinChatRoom request [{UserName: %s, ShortCode: %s, RoomPassword: %s}]", userName, roomShortCode, roomPassword))
 
@@ -179,7 +174,7 @@ func (s *GRPCChatterServer) ListChatRoomUsers(ctx context.Context, req *proto.Li
 		return nil, status.Error(codes.Internal, "Internal server error while adding user to chat room.")
 	}
 
-	resUsers := make([]*proto.User, 0, len(users)-1)
+	var resUsers []*proto.User
 	for _, user := range users {
 		if user != userName {
 			resUsers = append(resUsers, &proto.User{

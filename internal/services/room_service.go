@@ -217,7 +217,7 @@ func (crs *RoomServiceImpl) GetRoomUsers(shortCode string) ([]string, error) {
 		return nil, ErrRoomDoesNotExist
 	}
 
-	users := make([]string, 0, len(room.users))
+	var users []string
 	for userName := range room.users {
 		users = append(users, userName)
 	}
