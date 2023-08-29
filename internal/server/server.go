@@ -24,10 +24,8 @@ const (
 	// DefaultPort is the default port the server listens on.
 	DefaultPort = 5000
 	// DefaultAddress is the default address the server listens on.
-	DefaultAddress = ""
-
-	grpcHeaderTokenKey = "token"
-
+	DefaultAddress      = ""
+	grpcHeaderTokenKey  = "token"
 	contextKeyShortCode = contextKey("shortCode")
 	contextKeyUserName  = contextKey("userName")
 )
@@ -131,8 +129,7 @@ func (s *GRPCChatterServer) streamAuthorizationMiddleware(srv any, ss grpc.Serve
 			return err
 		}
 
-		var newCtx context.Context
-		newCtx = context.WithValue(ss.Context(), contextKeyShortCode, shortCode)
+		newCtx := context.WithValue(ss.Context(), contextKeyShortCode, shortCode)
 		newCtx = context.WithValue(newCtx, contextKeyUserName, userName)
 
 		wrapped := wrapper.WrapServerStream(ss)
