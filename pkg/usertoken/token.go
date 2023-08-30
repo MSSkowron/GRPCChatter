@@ -1,28 +1,37 @@
-package token
+package usertoken
 
 import (
 	"errors"
+	"time"
 
 	"github.com/golang-jwt/jwt"
 )
 
+type Claim interface {
+	string | float64
+}
+
 const (
+	ClaimUserIDKey    = "id"
 	ClaimUserNameKey  = "userName"
-	ClaimShortCodeKey = "shortCode"
+	ClaimExpiresAtKey = "expiresAt"
 )
 
 var (
 	// ErrInvalidToken is returned when the token is invalid.
 	ErrInvalidToken = errors.New("invalid token")
+	// ErrExpiredToken is returned when the token is expired.
+	ErrExpiredToken = errors.New("expired token")
 )
 
 // Generate generates a new JWT token.
 // The token is signed with the given secret.
-// The token contains the user name and short code.
-func Generate(userName, shortCode, secret string) (tokenString string, err error) {
+// The token contains the user id, user name, and expiration time.
+func Generate(userID int, userName string, expirationTime time.Duration, secret string) (string, error) {
 	claims := &jwt.MapClaims{
+		ClaimUserIDKey:    userID,
 		ClaimUserNameKey:  userName,
-		ClaimShortCodeKey: shortCode,
+		ClaimExpiresAtKey: time.Now().Add(expirationTime).Unix(),
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
@@ -32,7 +41,7 @@ func Generate(userName, shortCode, secret string) (tokenString string, err error
 
 // Validate validates the given JWT token.
 func Validate(tokenString, secret string) error {
-	token, err := parseToken(tokenString, secret)
+	token, err := parse(tokenString, secret)
 	if err != nil || !token.Valid {
 		return ErrInvalidToken
 	}
@@ -42,13 +51,22 @@ func Validate(tokenString, secret string) error {
 		return ErrInvalidToken
 	}
 
-	userName, ok := claims[ClaimUserNameKey].(string)
-	if !ok || userName == "" {
+	expiresAt, ok := token.Claims.(jwt.MapClaims)[ClaimExpiresAtKey].(float64)
+	if !ok {
 		return ErrInvalidToken
 	}
 
-	shortCode, ok := claims[ClaimShortCodeKey].(string)
-	if !ok || shortCode == "" {
+	if int64(expiresAt) < time.Now().Local().Unix() {
+		return ErrExpiredToken
+	}
+
+	_, ok = claims[ClaimUserIDKey].(float64)
+	if !ok {
+		return ErrInvalidToken
+	}
+
+	_, ok = claims[ClaimUserNameKey].(string)
+	if !ok {
 		return ErrInvalidToken
 	}
 
@@ -56,26 +74,28 @@ func Validate(tokenString, secret string) error {
 }
 
 // GetClaim retrieves a claim value with the given key from the given JWT token.
-func GetClaim(tokenString, secret, key string) (string, error) {
-	token, err := parseToken(tokenString, secret)
+func GetClaim[T Claim](tokenString, secret, key string) (T, error) {
+	var value T
+
+	token, err := parse(tokenString, secret)
 	if err != nil || !token.Valid {
-		return "", ErrInvalidToken
+		return value, ErrInvalidToken
 	}
 
 	claims, ok := token.Claims.(jwt.MapClaims)
 	if !ok {
-		return "", ErrInvalidToken
+		return value, ErrInvalidToken
 	}
 
-	value, ok := claims[key].(string)
+	value, ok = claims[key].(T)
 	if !ok {
-		return "", ErrInvalidToken
+		return value, ErrInvalidToken
 	}
 
 	return value, nil
 }
 
-func parseToken(tokenString, secret string) (*jwt.Token, error) {
+func parse(tokenString, secret string) (*jwt.Token, error) {
 	return jwt.Parse(tokenString, func(t *jwt.Token) (any, error) {
 		_, ok := t.Method.(*jwt.SigningMethodHMAC)
 		if !ok {
