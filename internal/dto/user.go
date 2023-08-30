@@ -10,8 +10,8 @@ type UserDTO struct {
 	Password  string    `json:"password"`
 }
 
-// AccountCreateDTO represents a data transfer object (DTO) for creating a user account request.
-type AccountCreateDTO struct {
+// UserRegisterDTO represents a data transfer object (DTO) for creating a user account request.
+type UserRegisterDTO struct {
 	Username string `json:"user_name"`
 	Password string `json:"password"`
 }
@@ -20,9 +20,4 @@ type AccountCreateDTO struct {
 type UserLoginDTO struct {
 	Username string `json:"user_name"`
 	Password string `json:"password"`
-}
-
-// TokenDTO represents a data transfer object (DTO) for a token.
-type TokenDTO struct {
-	Token string `json:"token"`
 }

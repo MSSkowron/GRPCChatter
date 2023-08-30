@@ -6,7 +6,7 @@ import (
 )
 
 type UserService interface {
-	RegisterUser(*dto.AccountCreateDTO) (*dto.UserDTO, error)
+	RegisterUser(*dto.UserRegisterDTO) (*dto.UserDTO, error)
 	LoginUser(*dto.UserLoginDTO) (*dto.TokenDTO, error)
 }
 
@@ -22,7 +22,7 @@ func NewUserServiceImpl(tokenService UserTokenService, userRepository repository
 	}
 }
 
-func (us *UserServiceImpl) RegisterUser(*dto.AccountCreateDTO) (*dto.UserDTO, error) {
+func (us *UserServiceImpl) RegisterUser(*dto.UserRegisterDTO) (*dto.UserDTO, error) {
 	return nil, nil
 }
 
