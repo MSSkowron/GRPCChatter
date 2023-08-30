@@ -76,13 +76,14 @@ To start using GRPCChatter, follow these steps to run the application:
     Optionally, you can use the **--config** flag to specify a configuration file path. The provided configuration file should be in the **.env** format. If you don't provide any configuration, the [**default**](./configs/default_config.env) configuration will be used.
 
     You can configure the following values in your configuration file:
-    - **REST_SERVER_ADDRESS**: The IP address where the REST server will listen.
-    - **REST_SERVER_PORT**: The port on which the REST server will listen.
-    - **GRPC_SERVER_ADDRESS**: The IP address where the gRPC server will listen.
-    - **GRPC_SERVER_PORT**: The port on which the gRPC server will listen.
+    - **REST_SERVER_ADDRESS**: IP address where the REST server will listen.
+    - **REST_SERVER_PORT**: Port on which the REST server will listen.
+    - **GRPC_SERVER_ADDRESS**: IP address where the gRPC server will listen.
+    - **GRPC_SERVER_PORT**: Port on which the gRPC server will listen.
+    - **TOKEN_DURATION**: Duration for which the JWT token is valid.
     - **SECRET**: Secret key used for JWT token signing and validation.
-    - **SHORT_CODE_LENGTH**: The length of generated room short codes.
-    - **MAX_MESSAGE_QUEUE_SIZE**: The maximum size of the message queue used to store messages to be sent to clients.
+    - **SHORT_CODE_LENGTH**: Length of generated room short codes.
+    - **MAX_MESSAGE_QUEUE_SIZE**: Maximum size of the message queue used to store messages to be sent to clients.
 
     Example of flag usage with a custom configuration file:
 

@@ -15,7 +15,7 @@ type UserServiceImpl struct {
 	userRepository repository.UserRepository
 }
 
-func NewUserServiceImpl(tokenService UserTokenService, userRepository repository.UserRepository) *UserServiceImpl {
+func NewUserService(tokenService UserTokenService, userRepository repository.UserRepository) *UserServiceImpl {
 	return &UserServiceImpl{
 		tokenService:   tokenService,
 		userRepository: userRepository,
