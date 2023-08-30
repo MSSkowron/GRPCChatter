@@ -21,6 +21,5 @@ const (
 // Server represents a gRPC server.
 type Server struct {
 	*http.Server
-	userService  service.UserService
-	tokenService service.UserTokenService
+	userService service.UserService
 }
