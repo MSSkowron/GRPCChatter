@@ -4,7 +4,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/MSSkowron/GRPCChatter/pkg/token"
+	token "github.com/MSSkowron/GRPCChatter/pkg/chattoken"
 )
 
 // ErrInvalidChatToken is returned when the token is invalid.
@@ -34,7 +34,7 @@ type ChatTokenServiceImpl struct {
 }
 
 // NewChatTokenService creates a new ChatTokenServiceImpl instance with the provided secret.
-func NewChatTokenService(secret string) ChatTokenService {
+func NewChatTokenService(secret string) *ChatTokenServiceImpl {
 	return &ChatTokenServiceImpl{
 		secret: secret,
 	}
