@@ -21,11 +21,11 @@ GRPCChatter is a real-time chat application built in Go, harnessing the power of
 
 GRPCChatter employs a robust client-server architecture using the gRPC server for chat-related stuff and REST Server for user authentication and authorization. Clients creates accounts and logs in using REST Server and using chat-related stuff via gRPC.
 
-![Architecture](./docs/architecture.png)
+![Architecture](./docs/architecture_overview.png)
 
 The architecture of the GRPCChatter is designed with a layered approach to ensure a clear separation of responsibilities and promote modularity. The system comprises the following core components:
 
-![Server Architecture](./docs/server_architecture.png)
+![Server Architecture](./docs/architecture_layered.png)
 
 - **Transport Layer**: Serves as the initial point of contact for incoming requests. It manages incoming HTTP & RPC requests, handling request authorization and validation before forwarding them to subsequent layer. Its primary responsibilities include request reception and input validation. Processed input is then passed to the Business Logic Layer for further handling. Once handling is complete and the Business Logic Layer returns a result, the Transport Layer interprets it and sends a proper response. The implementation is located in the [**server**](./internal/server) package.
 
