@@ -4,7 +4,7 @@ import (
 	"errors"
 	"sync"
 
-	"github.com/MSSkowron/BookRESTAPI/pkg/crypto"
+	"github.com/MSSkowron/GRPCChatter/pkg/crypto"
 )
 
 var (
