@@ -1,4 +1,4 @@
-package services
+package service
 
 import (
 	"errors"
@@ -7,11 +7,11 @@ import (
 	"github.com/MSSkowron/GRPCChatter/pkg/token"
 )
 
-// ErrInvalidToken is returned when the token is invalid.
-var ErrInvalidToken = errors.New("invalid token")
+// ErrInvalidChatToken is returned when the token is invalid.
+var ErrInvalidChatToken = errors.New("invalid token")
 
-// TokenService is an interface that defines the methods required for token management.
-type TokenService interface {
+// ChatTokenService is an interface that defines the methods required for token management.
+type ChatTokenService interface {
 	// GenerateToken generates a token for a given username and short code.
 	// It returns the generated token and an error if the generation fails.
 	GenerateToken(username, shortCode string) (string, error)
@@ -28,21 +28,21 @@ type TokenService interface {
 	GetShortCodeFromToken(token string) (string, error)
 }
 
-// TokenServiceImpl implements the TokenService interface.
-type TokenServiceImpl struct {
+// ChatTokenServiceImpl implements the ChatTokenService interface.
+type ChatTokenServiceImpl struct {
 	secret string
 }
 
-// NewTokenService creates a new TokenServiceImpl instance with the provided secret.
-func NewTokenService(secret string) TokenService {
-	return &TokenServiceImpl{
+// NewChatTokenService creates a new ChatTokenServiceImpl instance with the provided secret.
+func NewChatTokenService(secret string) ChatTokenService {
+	return &ChatTokenServiceImpl{
 		secret: secret,
 	}
 }
 
 // GenerateToken generates a token for a given username and short code.
 // It returns the generated token and an error if the generation fails.
-func (s *TokenServiceImpl) GenerateToken(username, shortCode string) (string, error) {
+func (s *ChatTokenServiceImpl) GenerateToken(username, shortCode string) (string, error) {
 	token, err := token.Generate(username, shortCode, s.secret)
 	if err != nil {
 		return "", fmt.Errorf("failed to generate token: %w", err)
@@ -51,29 +51,29 @@ func (s *TokenServiceImpl) GenerateToken(username, shortCode string) (string, er
 }
 
 // ValidateToken validates a token and returns an error if it's invalid.
-func (s *TokenServiceImpl) ValidateToken(t string) error {
+func (s *ChatTokenServiceImpl) ValidateToken(t string) error {
 	if err := token.Validate(t, s.secret); err != nil {
-		return ErrInvalidToken
+		return ErrInvalidChatToken
 	}
 	return nil
 }
 
 // GetUserNameFromToken retrieves the username from a token.
 // It returns the username and an error if the retrieval fails.
-func (s *TokenServiceImpl) GetUserNameFromToken(t string) (string, error) {
+func (s *ChatTokenServiceImpl) GetUserNameFromToken(t string) (string, error) {
 	userName, err := token.GetClaim(t, s.secret, token.ClaimUserNameKey)
 	if err != nil {
-		return "", ErrInvalidToken
+		return "", ErrInvalidChatToken
 	}
 	return userName, nil
 }
 
 // GetShortCodeFromToken retrieves the short code from a token.
 // It returns the short code and an error if the retrieval fails.
-func (s *TokenServiceImpl) GetShortCodeFromToken(t string) (string, error) {
+func (s *ChatTokenServiceImpl) GetShortCodeFromToken(t string) (string, error) {
 	shortCode, err := token.GetClaim(t, s.secret, token.ClaimShortCodeKey)
 	if err != nil {
-		return "", ErrInvalidToken
+		return "", ErrInvalidChatToken
 	}
 	return shortCode, nil
 }

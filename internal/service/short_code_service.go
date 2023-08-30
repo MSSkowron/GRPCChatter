@@ -1,4 +1,4 @@
-package services
+package service
 
 import "github.com/MSSkowron/GRPCChatter/pkg/rand"
 

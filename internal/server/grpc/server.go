@@ -1,4 +1,4 @@
-package server
+package grpc
 
 import (
 	"context"
@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"sync"
 
-	"github.com/MSSkowron/GRPCChatter/internal/services"
+	"github.com/MSSkowron/GRPCChatter/internal/service"
 	"github.com/MSSkowron/GRPCChatter/pkg/logger"
 	"github.com/MSSkowron/GRPCChatter/pkg/wrapper"
 	"github.com/MSSkowron/GRPCChatter/proto/gen/proto"
@@ -30,13 +30,13 @@ const (
 	contextKeyUserName  = contextKey("userName")
 )
 
-// GRPCChatterServer represents a GRPCChatter server.
-type GRPCChatterServer struct {
+// Server represents a gRPC server.
+type Server struct {
 	proto.UnimplementedGRPCChatterServer
 
-	tokenService     services.TokenService
-	shortCodeService services.ShortCodeService
-	roomService      services.RoomService
+	tokenService     service.ChatTokenService
+	shortCodeService service.ShortCodeService
+	roomService      service.RoomService
 
 	address string
 	port    int
@@ -45,9 +45,9 @@ type GRPCChatterServer struct {
 	authorizedStreamMethods map[string]struct{}
 }
 
-// NewGRPCChatterServer creates a new GRPCChatter server.
-func NewGRPCChatterServer(tokenService services.TokenService, shortCodeService services.ShortCodeService, roomService services.RoomService, opts ...Opt) *GRPCChatterServer {
-	server := &GRPCChatterServer{
+// NewServer creates a new GRPCChatter server.
+func NewServer(tokenService service.ChatTokenService, shortCodeService service.ShortCodeService, roomService service.RoomService, opts ...Opt) *Server {
+	server := &Server{
 		tokenService:     tokenService,
 		shortCodeService: shortCodeService,
 		roomService:      roomService,
@@ -68,25 +68,25 @@ func NewGRPCChatterServer(tokenService services.TokenService, shortCodeService s
 	return server
 }
 
-// Opt represents an option that can be passed to NewGRPCChatterServer.
-type Opt func(*GRPCChatterServer)
+// Opt represents an option that can be passed to NewServer.
+type Opt func(*Server)
 
 // WithAddress sets the address the server listens on.
 func WithAddress(address string) Opt {
-	return func(s *GRPCChatterServer) {
+	return func(s *Server) {
 		s.address = address
 	}
 }
 
 // WithPort sets the port the server listens on.
 func WithPort(port int) Opt {
-	return func(s *GRPCChatterServer) {
+	return func(s *Server) {
 		s.port = port
 	}
 }
 
 // ListenAndServe starts the server and listens for incoming connections.
-func (s *GRPCChatterServer) ListenAndServe() error {
+func (s *Server) ListenAndServe() error {
 	ln, err := net.Listen("tcp", s.address+":"+strconv.Itoa(s.port))
 	if err != nil {
 		return fmt.Errorf("failed to create tcp listener on %s:%d: %w", s.address, s.port, err)
@@ -107,7 +107,7 @@ func (s *GRPCChatterServer) ListenAndServe() error {
 	return nil
 }
 
-func (s *GRPCChatterServer) unaryAuthorizationMiddleware(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (any, error) {
+func (s *Server) unaryAuthorizationMiddleware(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (any, error) {
 	if _, exists := s.authorizedUnaryMethods[info.FullMethod]; exists {
 		shortCode, userName, err := s.authorize(ctx)
 		if err != nil {
@@ -122,7 +122,7 @@ func (s *GRPCChatterServer) unaryAuthorizationMiddleware(ctx context.Context, re
 	return handler(ctx, req)
 }
 
-func (s *GRPCChatterServer) streamAuthorizationMiddleware(srv any, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
+func (s *Server) streamAuthorizationMiddleware(srv any, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
 	if _, exists := s.authorizedStreamMethods[info.FullMethod]; exists {
 		shortCode, userName, err := s.authorize(ss.Context())
 		if err != nil {
@@ -141,7 +141,7 @@ func (s *GRPCChatterServer) streamAuthorizationMiddleware(srv any, ss grpc.Serve
 	return handler(srv, ss)
 }
 
-func (s *GRPCChatterServer) authorize(ctx context.Context) (string, string, error) {
+func (s *Server) authorize(ctx context.Context) (string, string, error) {
 	md, ok := metadata.FromIncomingContext(ctx)
 	if !ok {
 		return "", "", status.Errorf(codes.Unauthenticated, "Missing gRPC headers: %s. Please include your authentication token in the '%s' gRPC header.", grpcHeaderTokenKey, grpcHeaderTokenKey)
@@ -154,7 +154,7 @@ func (s *GRPCChatterServer) authorize(ctx context.Context) (string, string, erro
 	userToken := tokens[0]
 
 	if err := s.tokenService.ValidateToken(userToken); err != nil {
-		if errors.Is(err, services.ErrInvalidToken) {
+		if errors.Is(err, service.ErrInvalidChatToken) {
 			return "", "", status.Error(codes.Unauthenticated, "Invalid authentication token. Please provide a valid token.")
 		}
 
@@ -163,7 +163,7 @@ func (s *GRPCChatterServer) authorize(ctx context.Context) (string, string, erro
 
 	shortCode, err := s.tokenService.GetShortCodeFromToken(userToken)
 	if err != nil {
-		if errors.Is(err, services.ErrInvalidToken) {
+		if errors.Is(err, service.ErrInvalidChatToken) {
 			return "", "", status.Error(codes.Unauthenticated, "Invalid authentication token. Please provide a valid token.")
 		}
 
@@ -172,7 +172,7 @@ func (s *GRPCChatterServer) authorize(ctx context.Context) (string, string, erro
 
 	userName, err := s.tokenService.GetUserNameFromToken(userToken)
 	if err != nil {
-		if errors.Is(err, services.ErrInvalidToken) {
+		if errors.Is(err, service.ErrInvalidChatToken) {
 			return "", "", status.Error(codes.Unauthenticated, "Invalid authentication token. Please provide a valid token.")
 		}
 
@@ -188,7 +188,7 @@ func (s *GRPCChatterServer) authorize(ctx context.Context) (string, string, erro
 		return "", "", status.Error(codes.PermissionDenied, "No permission to access this room. You do not have permission to participate in this chat room.")
 	}
 	if err != nil {
-		if errors.Is(err, services.ErrRoomDoesNotExist) {
+		if errors.Is(err, service.ErrRoomDoesNotExist) {
 			return "", "", status.Errorf(codes.NotFound, "Chat room with short code [%s] not found. Please check the provided short code.", shortCode)
 		}
 
@@ -199,7 +199,7 @@ func (s *GRPCChatterServer) authorize(ctx context.Context) (string, string, erro
 }
 
 // CreateChatRoom is an RPC handler that creates a new chat room.
-func (s *GRPCChatterServer) CreateChatRoom(ctx context.Context, req *proto.CreateChatRoomRequest) (*proto.CreateChatRoomResponse, error) {
+func (s *Server) CreateChatRoom(ctx context.Context, req *proto.CreateChatRoomRequest) (*proto.CreateChatRoomResponse, error) {
 	roomName := req.GetRoomName()
 	roomPassword := req.GetRoomPassword()
 
@@ -219,7 +219,7 @@ func (s *GRPCChatterServer) CreateChatRoom(ctx context.Context, req *proto.Creat
 }
 
 // JoinChatRoom is an RPC handler that allows a user to join an existing chat room.
-func (s *GRPCChatterServer) JoinChatRoom(ctx context.Context, req *proto.JoinChatRoomRequest) (*proto.JoinChatRoomResponse, error) {
+func (s *Server) JoinChatRoom(ctx context.Context, req *proto.JoinChatRoomRequest) (*proto.JoinChatRoomResponse, error) {
 	userName := req.GetUserName()
 	roomShortCode := req.GetShortCode()
 	roomPassword := req.GetRoomPassword()
@@ -231,10 +231,10 @@ func (s *GRPCChatterServer) JoinChatRoom(ctx context.Context, req *proto.JoinCha
 	}
 
 	if err := s.roomService.CheckPassword(roomShortCode, roomPassword); err != nil {
-		if errors.Is(err, services.ErrRoomDoesNotExist) {
+		if errors.Is(err, service.ErrRoomDoesNotExist) {
 			return nil, status.Errorf(codes.NotFound, "Chat room with short code [%s] not found. Please check the provided short code.", roomShortCode)
 		}
-		if errors.Is(err, services.ErrInvalidPassword) {
+		if errors.Is(err, service.ErrInvalidPassword) {
 			return nil, status.Errorf(codes.PermissionDenied, "Invalid room password for chat room with short code [%s]. Please make sure you have the correct password.", roomShortCode)
 		}
 
@@ -242,10 +242,10 @@ func (s *GRPCChatterServer) JoinChatRoom(ctx context.Context, req *proto.JoinCha
 	}
 
 	if err := s.roomService.AddUserToRoom(roomShortCode, userName); err != nil {
-		if errors.Is(err, services.ErrRoomDoesNotExist) {
+		if errors.Is(err, service.ErrRoomDoesNotExist) {
 			return nil, status.Errorf(codes.NotFound, "Chat room with short code [%s] not found. Please check the provided short code.", roomShortCode)
 		}
-		if errors.Is(err, services.ErrUserAlreadyExists) {
+		if errors.Is(err, service.ErrUserAlreadyExists) {
 			return nil, status.Errorf(codes.AlreadyExists, "User with username [%s] already exists in the chat room with short code [%s].", userName, roomPassword)
 		}
 
@@ -267,12 +267,12 @@ func (s *GRPCChatterServer) JoinChatRoom(ctx context.Context, req *proto.JoinCha
 }
 
 // ListChatRoomUsers is an RPC handler that lists the users in a chat room.
-func (s *GRPCChatterServer) ListChatRoomUsers(ctx context.Context, req *proto.ListChatRoomUsersRequest) (*proto.ListChatRoomUsersResponse, error) {
+func (s *Server) ListChatRoomUsers(ctx context.Context, req *proto.ListChatRoomUsersRequest) (*proto.ListChatRoomUsersResponse, error) {
 	shortCode, userName := ctx.Value(contextKeyShortCode).(string), ctx.Value(contextKeyUserName).(string)
 
 	users, err := s.roomService.GetRoomUsers(shortCode)
 	if err != nil {
-		if errors.Is(err, services.ErrRoomDoesNotExist) {
+		if errors.Is(err, service.ErrRoomDoesNotExist) {
 			return nil, status.Errorf(codes.NotFound, "Chat room with short code [%s] not found. Please check the provided short code.", shortCode)
 		}
 
@@ -294,7 +294,7 @@ func (s *GRPCChatterServer) ListChatRoomUsers(ctx context.Context, req *proto.Li
 }
 
 // Chat is a server-side streaming RPC handler that receives messages from users and broadcasts them to all other users.
-func (s *GRPCChatterServer) Chat(chs proto.GRPCChatter_ChatServer) error {
+func (s *Server) Chat(chs proto.GRPCChatter_ChatServer) error {
 	shortCode, userName := chs.Context().Value(contextKeyShortCode).(string), chs.Context().Value(contextKeyUserName).(string)
 
 	logger.Info(fmt.Sprintf("User [UserName: %s] established message stream with the chat room with short code [%s]", userName, shortCode))
@@ -318,7 +318,7 @@ func (s *GRPCChatterServer) Chat(chs proto.GRPCChatter_ChatServer) error {
 	return nil
 }
 
-func (s *GRPCChatterServer) receive(chs proto.GRPCChatter_ChatServer, userName, roomShortCode string, sendStopCh chan<- struct{}, receiveStopCh <-chan struct{}, wg *sync.WaitGroup) {
+func (s *Server) receive(chs proto.GRPCChatter_ChatServer, userName, roomShortCode string, sendStopCh chan<- struct{}, receiveStopCh <-chan struct{}, wg *sync.WaitGroup) {
 	defer wg.Done()
 
 	for {
@@ -348,7 +348,7 @@ func (s *GRPCChatterServer) receive(chs proto.GRPCChatter_ChatServer, userName, 
 
 			logger.Info(fmt.Sprintf("Received message [Body: %s] from user [UserName: %s] in chat room with short code [%s]", body, userName, roomShortCode))
 
-			if err := s.roomService.BroadcastMessageToRoom(roomShortCode, &services.Message{
+			if err := s.roomService.BroadcastMessageToRoom(roomShortCode, &service.Message{
 				Sender: userName,
 				Body:   body,
 			}); err != nil {
@@ -362,7 +362,7 @@ func (s *GRPCChatterServer) receive(chs proto.GRPCChatter_ChatServer, userName, 
 	}
 }
 
-func (s *GRPCChatterServer) send(chs proto.GRPCChatter_ChatServer, userName, roomShortCode string, sendStopCh chan<- struct{}, receiveStopCh <-chan struct{}, wg *sync.WaitGroup) {
+func (s *Server) send(chs proto.GRPCChatter_ChatServer, userName, roomShortCode string, sendStopCh chan<- struct{}, receiveStopCh <-chan struct{}, wg *sync.WaitGroup) {
 	defer wg.Done()
 
 	for {

@@ -5,8 +5,8 @@ import (
 	"fmt"
 
 	"github.com/MSSkowron/GRPCChatter/internal/config"
-	"github.com/MSSkowron/GRPCChatter/internal/server"
-	"github.com/MSSkowron/GRPCChatter/internal/services"
+	"github.com/MSSkowron/GRPCChatter/internal/server/grpc"
+	"github.com/MSSkowron/GRPCChatter/internal/service"
 )
 
 const (
@@ -22,16 +22,16 @@ func Run() error {
 		return fmt.Errorf("failed to load configuration: %w", err)
 	}
 
-	tokenService := services.NewTokenService(config.Secret)
-	shortCodeService := services.NewShortCodeService(config.ShortCodeLength)
-	roomService := services.NewRoomService(config.MaxMessageQueueSize)
+	chatTokenService := service.NewChatTokenService(config.Secret)
+	shortCodeService := service.NewShortCodeService(config.ShortCodeLength)
+	roomService := service.NewRoomService(config.MaxMessageQueueSize)
 
-	server := server.NewGRPCChatterServer(
-		tokenService,
+	server := grpc.NewServer(
+		chatTokenService,
 		shortCodeService,
 		roomService,
-		server.WithAddress(config.ServerAddress),
-		server.WithPort(config.ServerPort),
+		grpc.WithAddress(config.ServerAddress),
+		grpc.WithPort(config.ServerPort),
 	)
 
 	if err := server.ListenAndServe(); err != nil {
