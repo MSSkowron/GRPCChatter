@@ -3,6 +3,7 @@ package rest
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -23,6 +24,13 @@ const (
 	DefaultWriteTimeout = 15 * time.Second
 	// DefaultReadTimeout is the default read timeout for incoming requests.
 	DefaultReadTimeout = 15 * time.Second
+
+	// ErrMsgUnauthorized is a http response body message for unauthorized status code.
+	ErrMsgUnauthorized = "Unauthorized"
+	// ErrMsgBadRequestInvalidRequestBody is a http response body message for bad request status code.
+	ErrMsgBadRequestInvalidRequestBody = "Invalid request body"
+	// ErrMsgInternalServerError is a http response body message for internal server error status code.
+	ErrMsgInternalServerError = "Internal server error"
 )
 
 // Server represents a gRPC server.
@@ -92,7 +100,7 @@ func (s *Server) log(next http.Handler) http.Handler {
 
 		body, err := io.ReadAll(r.Body)
 		if err != nil {
-			s.respondWithError(w, http.StatusInternalServerError, "Internal server error")
+			s.respondWithError(w, http.StatusInternalServerError, ErrMsgInternalServerError)
 			return
 		}
 		r.Body = io.NopCloser(bytes.NewBuffer(body))
@@ -106,13 +114,22 @@ func (s *Server) log(next http.Handler) http.Handler {
 func (s *Server) handleRegister(w http.ResponseWriter, r *http.Request) {
 	registerDTO := &dto.UserRegisterDTO{}
 	if err := json.NewDecoder(r.Body).Decode(registerDTO); err != nil {
-		s.respondWithError(w, http.StatusBadRequest, "Invalid request body")
+		s.respondWithError(w, http.StatusBadRequest, ErrMsgBadRequestInvalidRequestBody)
 		return
 	}
 
 	userDTO, err := s.userService.RegisterUser(r.Context(), registerDTO)
 	if err != nil {
-		s.respondWithError(w, http.StatusInternalServerError, "Internal server error")
+		switch {
+		case errors.Is(err, service.ErrInvalidUsername):
+			s.respondWithError(w, http.StatusBadRequest, fmt.Sprintf("%s:%s", ErrMsgBadRequestInvalidRequestBody, err))
+		case errors.Is(err, service.ErrInvalidPassword):
+			s.respondWithError(w, http.StatusBadRequest, fmt.Sprintf("%s:%s", ErrMsgBadRequestInvalidRequestBody, err))
+		case errors.Is(err, service.ErrUserAlreadyExists):
+			s.respondWithError(w, http.StatusBadRequest, fmt.Sprintf("%s:%s", ErrMsgBadRequestInvalidRequestBody, err))
+		default:
+			s.respondWithError(w, http.StatusInternalServerError, ErrMsgInternalServerError)
+		}
 		return
 	}
 
@@ -122,13 +139,18 @@ func (s *Server) handleRegister(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 	loginDTO := &dto.UserLoginDTO{}
 	if err := json.NewDecoder(r.Body).Decode(loginDTO); err != nil {
-		s.respondWithError(w, http.StatusBadRequest, "Invalid request body")
+		s.respondWithError(w, http.StatusBadRequest, ErrMsgBadRequestInvalidRequestBody)
 		return
 	}
 
 	tokenDTO, err := s.userService.LoginUser(r.Context(), loginDTO)
 	if err != nil {
-		s.respondWithError(w, http.StatusInternalServerError, "Internal server error")
+		switch {
+		case errors.Is(err, service.ErrInvalidCredentials):
+			s.respondWithError(w, http.StatusUnauthorized, fmt.Sprintf("%s:%s", ErrMsgUnauthorized, err))
+		default:
+			s.respondWithError(w, http.StatusInternalServerError, ErrMsgInternalServerError)
+		}
 		return
 	}
 
@@ -147,11 +169,17 @@ func (s *Server) respondWithJSON(w http.ResponseWriter, code int, payload any) {
 		logger.Error(fmt.Sprintf("Failed to marshall response to JSON: %s ", err))
 
 		w.WriteHeader(http.StatusInternalServerError)
-		_, _ = w.Write([]byte("Internal server error"))
+		_, err = w.Write([]byte(ErrMsgInternalServerError))
+		if err != nil {
+			logger.Error(fmt.Sprintf("Failed to respond: %s", err))
+		}
 
 		return
 	}
 
 	w.WriteHeader(code)
-	_, _ = w.Write(response)
+	_, err = w.Write(response)
+	if err != nil {
+		logger.Error(fmt.Sprintf("Failed to respond: %s", err))
+	}
 }
