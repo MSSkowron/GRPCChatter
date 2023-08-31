@@ -87,7 +87,7 @@ func WithWriteTimeout(timeout time.Duration) ServerOption {
 func (s *Server) initRoutes() {
 	r := mux.NewRouter()
 
-	r.Use(s.log)
+	r.Use(s.logMiddleware)
 
 	r.HandleFunc("/register", s.handleRegister).Methods("POST")
 	r.HandleFunc("/login", s.handleLogin).Methods("POST")
@@ -95,7 +95,7 @@ func (s *Server) initRoutes() {
 	s.Handler = r
 }
 
-func (s *Server) log(next http.Handler) http.Handler {
+func (s *Server) logMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ip, endpoint, method := r.RemoteAddr, r.URL.Path, r.Method
 

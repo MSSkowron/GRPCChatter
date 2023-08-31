@@ -95,8 +95,8 @@ func (s *Server) ListenAndServe() error {
 	logger.Info(fmt.Sprintf("Server listening on %s:%d", s.address, s.port))
 
 	grpcServer := grpc.NewServer(
-		grpc.ChainUnaryInterceptor(s.unaryAuthorizationMiddleware),
-		grpc.ChainStreamInterceptor(s.streamAuthorizationMiddleware),
+		grpc.ChainUnaryInterceptor(s.unaryLogMiddleware, s.unaryAuthorizationMiddleware),
+		grpc.ChainStreamInterceptor(s.streamLogMiddleware, s.streamAuthorizationMiddleware),
 	)
 	proto.RegisterGRPCChatterServer(grpcServer, s)
 
@@ -105,6 +105,12 @@ func (s *Server) ListenAndServe() error {
 	}
 
 	return nil
+}
+
+func (s *Server) unaryLogMiddleware(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (any, error) {
+	logger.Info(fmt.Sprintf("Received Unary RPC [%s] call with [%v]", info.FullMethod, req))
+
+	return handler(ctx, req)
 }
 
 func (s *Server) unaryAuthorizationMiddleware(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (any, error) {
@@ -120,6 +126,12 @@ func (s *Server) unaryAuthorizationMiddleware(ctx context.Context, req any, info
 	}
 
 	return handler(ctx, req)
+}
+
+func (s *Server) streamLogMiddleware(srv any, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
+	logger.Info(fmt.Sprintf("Received Stream RPC [%s] call with [%v]", info.FullMethod, srv))
+
+	return handler(srv, ss)
 }
 
 func (s *Server) streamAuthorizationMiddleware(srv any, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
@@ -203,8 +215,6 @@ func (s *Server) CreateChatRoom(ctx context.Context, req *proto.CreateChatRoomRe
 	roomName := req.GetRoomName()
 	roomPassword := req.GetRoomPassword()
 
-	logger.Info(fmt.Sprintf("Received RPC CreateChatRoom request [{RoomName: %s, RoomPassword: %s}]", roomName, roomPassword))
-
 	roomShortCode := s.shortCodeService.GenerateShortCode(roomName)
 
 	if err := s.roomService.CreateRoom(roomShortCode, roomName, roomPassword); err != nil {
@@ -223,8 +233,6 @@ func (s *Server) JoinChatRoom(ctx context.Context, req *proto.JoinChatRoomReques
 	userName := req.GetUserName()
 	roomShortCode := req.GetShortCode()
 	roomPassword := req.GetRoomPassword()
-
-	logger.Info(fmt.Sprintf("Received RPC JoinChatRoom request [{UserName: %s, ShortCode: %s, RoomPassword: %s}]", userName, roomShortCode, roomPassword))
 
 	if !s.roomService.RoomExists(roomShortCode) {
 		return nil, status.Errorf(codes.NotFound, "Chat room with short code [%s] not found. Please check the provided short code.", roomShortCode)
@@ -287,6 +295,8 @@ func (s *Server) ListChatRoomUsers(ctx context.Context, req *proto.ListChatRoomU
 			})
 		}
 	}
+
+	logger.Info(fmt.Sprintf("Listed chat room with short code [%s] users [%v]", shortCode, users))
 
 	return &proto.ListChatRoomUsersResponse{
 		Users: resUsers,
