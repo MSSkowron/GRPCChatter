@@ -22,9 +22,11 @@ const (
 	// DefaultPort is the default port the server listens on.
 	DefaultPort = 5000
 	// DefaultAddress is the default address the server listens on.
-	DefaultAddress      = ""
-	grpcHeaderTokenKey  = "token"
+	DefaultAddress     = ""
+	grpcHeaderTokenKey = "token"
+
 	contextKeyShortCode = contextKey("shortCode")
+	contextKeyUserID    = contextKey("userID")
 	contextKeyUserName  = contextKey("userName")
 )
 
@@ -32,29 +34,38 @@ const (
 type Server struct {
 	proto.UnimplementedGRPCChatterServer
 
-	tokenService     service.ChatTokenService
+	chatTokenService service.ChatTokenService
+	userTokenService service.UserTokenService
 	shortCodeService service.ShortCodeService
 	roomService      service.RoomService
 
 	address string
 	port    int
 
-	authorizedUnaryMethods  map[string]struct{}
-	authorizedStreamMethods map[string]struct{}
+	authorizedUserTokenUnaryMethods  map[string]struct{}
+	authorizedChatTokenUnaryMethods  map[string]struct{}
+	authorizedUserTokenStreamMethods map[string]struct{}
+	authorizedChatTokenStreamMethods map[string]struct{}
 }
 
 // NewServer creates a new GRPCChatter server.
-func NewServer(tokenService service.ChatTokenService, shortCodeService service.ShortCodeService, roomService service.RoomService, opts ...Opt) *Server {
+func NewServer(chatTokenService service.ChatTokenService, userTokenService service.UserTokenService, shortCodeService service.ShortCodeService, roomService service.RoomService, opts ...Opt) *Server {
 	server := &Server{
-		tokenService:     tokenService,
+		chatTokenService: chatTokenService,
+		userTokenService: userTokenService,
 		shortCodeService: shortCodeService,
 		roomService:      roomService,
 		address:          DefaultAddress,
 		port:             DefaultPort,
-		authorizedUnaryMethods: map[string]struct{}{
+		authorizedUserTokenUnaryMethods: map[string]struct{}{
+			"/proto.GRPCChatter/CreateChatRoom": {},
+			"/proto.GRPCChatter/JoinChatRoom":   {},
+		},
+		authorizedChatTokenUnaryMethods: map[string]struct{}{
 			"/proto.GRPCChatter/ListChatRoomUsers": {},
 		},
-		authorizedStreamMethods: map[string]struct{}{
+		authorizedUserTokenStreamMethods: map[string]struct{}{},
+		authorizedChatTokenStreamMethods: map[string]struct{}{
 			"/proto.GRPCChatter/Chat": {},
 		},
 	}
@@ -157,7 +168,7 @@ func (s *Server) JoinChatRoom(ctx context.Context, req *proto.JoinChatRoomReques
 
 	logger.Info(fmt.Sprintf("Added user [UserName: %s] to chat room user's list with short code [%s]", userName, roomShortCode))
 
-	token, err := s.tokenService.GenerateToken(userName, roomShortCode)
+	token, err := s.chatTokenService.GenerateToken(userName, roomShortCode)
 	if err != nil {
 		return nil, status.Error(codes.Internal, "Internal server error while generating token.")
 	}

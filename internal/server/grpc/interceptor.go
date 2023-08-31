@@ -21,13 +21,23 @@ func (s *Server) unaryLogInterceptor(ctx context.Context, req any, info *grpc.Un
 }
 
 func (s *Server) unaryAuthorizationInterceptor(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (any, error) {
-	if _, exists := s.authorizedUnaryMethods[info.FullMethod]; exists {
-		shortCode, userName, err := s.authorize(ctx)
+	if _, exists := s.authorizedChatTokenUnaryMethods[info.FullMethod]; exists {
+		shortCode, userName, err := s.authorizeChatToken(ctx)
 		if err != nil {
 			return nil, err
 		}
 
 		ctx = context.WithValue(ctx, contextKeyShortCode, shortCode)
+		ctx = context.WithValue(ctx, contextKeyUserName, userName)
+		return handler(ctx, req)
+	}
+	if _, exists := s.authorizedUserTokenUnaryMethods[info.FullMethod]; exists {
+		userID, userName, err := s.authorizeUserToken(ctx)
+		if err != nil {
+			return nil, err
+		}
+
+		ctx = context.WithValue(ctx, contextKeyUserID, userID)
 		ctx = context.WithValue(ctx, contextKeyUserName, userName)
 		return handler(ctx, req)
 	}
@@ -42,8 +52,8 @@ func (s *Server) streamLogInterceptor(srv any, ss grpc.ServerStream, info *grpc.
 }
 
 func (s *Server) streamAuthorizationInterceptor(srv any, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
-	if _, exists := s.authorizedStreamMethods[info.FullMethod]; exists {
-		shortCode, userName, err := s.authorize(ss.Context())
+	if _, exists := s.authorizedChatTokenStreamMethods[info.FullMethod]; exists {
+		shortCode, userName, err := s.authorizeChatToken(ss.Context())
 		if err != nil {
 			return err
 		}
@@ -56,11 +66,25 @@ func (s *Server) streamAuthorizationInterceptor(srv any, ss grpc.ServerStream, i
 
 		return handler(srv, wrapped)
 	}
+	if _, exists := s.authorizedUserTokenStreamMethods[info.FullMethod]; exists {
+		userID, userName, err := s.authorizeUserToken(ss.Context())
+		if err != nil {
+			return err
+		}
+
+		newCtx := context.WithValue(ss.Context(), contextKeyUserID, userID)
+		newCtx = context.WithValue(newCtx, contextKeyUserName, userName)
+
+		wrapped := wrapper.WrapServerStream(ss)
+		wrapped.SetContext(newCtx)
+
+		return handler(srv, wrapped)
+	}
 
 	return handler(srv, ss)
 }
 
-func (s *Server) authorize(ctx context.Context) (string, string, error) {
+func (s *Server) authorizeChatToken(ctx context.Context) (string, string, error) {
 	md, ok := metadata.FromIncomingContext(ctx)
 	if !ok {
 		return "", "", status.Errorf(codes.Unauthenticated, "Missing gRPC headers: %s. Please include your authentication token in the '%s' gRPC header.", grpcHeaderTokenKey, grpcHeaderTokenKey)
@@ -72,7 +96,7 @@ func (s *Server) authorize(ctx context.Context) (string, string, error) {
 	}
 	userToken := tokens[0]
 
-	if err := s.tokenService.ValidateToken(userToken); err != nil {
+	if err := s.chatTokenService.ValidateToken(userToken); err != nil {
 		if errors.Is(err, service.ErrInvalidChatToken) {
 			return "", "", status.Error(codes.Unauthenticated, "Invalid authentication token. Please provide a valid token.")
 		}
@@ -80,7 +104,7 @@ func (s *Server) authorize(ctx context.Context) (string, string, error) {
 		return "", "", status.Error(codes.Internal, "Internal server error while validating token.")
 	}
 
-	shortCode, err := s.tokenService.GetShortCodeFromToken(userToken)
+	shortCode, err := s.chatTokenService.GetShortCodeFromToken(userToken)
 	if err != nil {
 		if errors.Is(err, service.ErrInvalidChatToken) {
 			return "", "", status.Error(codes.Unauthenticated, "Invalid authentication token. Please provide a valid token.")
@@ -89,7 +113,7 @@ func (s *Server) authorize(ctx context.Context) (string, string, error) {
 		return "", "", status.Error(codes.Internal, "Internal server error while retrieving short code from token.")
 	}
 
-	userName, err := s.tokenService.GetUserNameFromToken(userToken)
+	userName, err := s.chatTokenService.GetUserNameFromToken(userToken)
 	if err != nil {
 		if errors.Is(err, service.ErrInvalidChatToken) {
 			return "", "", status.Error(codes.Unauthenticated, "Invalid authentication token. Please provide a valid token.")
@@ -115,4 +139,45 @@ func (s *Server) authorize(ctx context.Context) (string, string, error) {
 	}
 
 	return shortCode, userName, nil
+}
+
+func (s *Server) authorizeUserToken(ctx context.Context) (int, string, error) {
+	md, ok := metadata.FromIncomingContext(ctx)
+	if !ok {
+		return 0, "", status.Errorf(codes.Unauthenticated, "Missing gRPC headers: %s. Please include your authentication token in the '%s' gRPC header.", grpcHeaderTokenKey, grpcHeaderTokenKey)
+	}
+
+	tokens := md.Get(grpcHeaderTokenKey)
+	if len(tokens) == 0 {
+		return 0, "", status.Errorf(codes.Unauthenticated, "Authentication token missing in gRPC headers. Please include your token in the '%s' gRPC header.", grpcHeaderTokenKey)
+	}
+	userToken := tokens[0]
+
+	if err := s.userTokenService.ValidateToken(userToken); err != nil {
+		if errors.Is(err, service.ErrInvalidUserToken) {
+			return 0, "", status.Error(codes.Unauthenticated, "Invalid authentication token. Please provide a valid token.")
+		}
+
+		return 0, "", status.Error(codes.Internal, "Internal server error while validating token.")
+	}
+
+	userID, err := s.userTokenService.GetUserIDFromToken(userToken)
+	if err != nil {
+		if errors.Is(err, service.ErrInvalidUserToken) {
+			return 0, "", status.Error(codes.Unauthenticated, "Invalid authentication token. Please provide a valid token.")
+		}
+
+		return 0, "", status.Error(codes.Internal, "Internal server error while retrieving short code from token.")
+	}
+
+	userName, err := s.userTokenService.GetUserNameFromToken(userToken)
+	if err != nil {
+		if errors.Is(err, service.ErrInvalidChatToken) {
+			return 0, "", status.Error(codes.Unauthenticated, "Invalid authentication token. Please provide a valid token.")
+		}
+
+		return 0, "", status.Error(codes.Internal, "Internal server error while retrieving user name from token.")
+	}
+
+	return userID, userName, nil
 }

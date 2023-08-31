@@ -43,6 +43,7 @@ func Run() error {
 
 	grpcServer := grpc.NewServer(
 		chatTokenService,
+		userTokenService,
 		shortCodeService,
 		roomService,
 		grpc.WithAddress(config.GRPCServerAddress),
