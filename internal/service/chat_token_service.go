@@ -4,7 +4,7 @@ import (
 	"errors"
 	"fmt"
 
-	token "github.com/MSSkowron/GRPCChatter/pkg/chattoken"
+	token "github.com/MSSkowron/GRPCChatter/pkg/token/chattoken"
 )
 
 // ErrInvalidChatToken is returned when the token is invalid.

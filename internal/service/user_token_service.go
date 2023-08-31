@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	token "github.com/MSSkowron/GRPCChatter/pkg/usertoken"
+	token "github.com/MSSkowron/GRPCChatter/pkg/token/usertoken"
 )
 
 // ErrInvalidUserToken is returned when the token is invalid.

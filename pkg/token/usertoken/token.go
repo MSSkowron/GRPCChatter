@@ -4,12 +4,9 @@ import (
 	"errors"
 	"time"
 
+	"github.com/MSSkowron/GRPCChatter/pkg/token"
 	"github.com/golang-jwt/jwt"
 )
-
-type Claim interface {
-	string | float64
-}
 
 const (
 	ClaimUserIDKey    = "id"
@@ -24,24 +21,21 @@ var (
 	ErrExpiredToken = errors.New("expired token")
 )
 
-// Generate generates a new JWT token.
-// The token is signed with the given secret.
-// The token contains the user id, user name, and expiration time.
+// Generate generates a new JWT token with user ID, user name, and expiration time.
 func Generate(userID int, userName string, expirationTime time.Duration, secret string) (string, error) {
+	expiration := time.Now().Add(expirationTime).Unix()
 	claims := &jwt.MapClaims{
 		ClaimUserIDKey:    userID,
 		ClaimUserNameKey:  userName,
-		ClaimExpiresAtKey: time.Now().Add(expirationTime).Unix(),
+		ClaimExpiresAtKey: expiration,
 	}
 
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-
-	return token.SignedString([]byte(secret))
+	return token.NewWithClaims(claims, secret)
 }
 
 // Validate validates the given JWT token.
 func Validate(tokenString, secret string) error {
-	token, err := parse(tokenString, secret)
+	token, err := token.Parse(tokenString, secret)
 	if err != nil || !token.Valid {
 		return ErrInvalidToken
 	}
@@ -73,11 +67,15 @@ func Validate(tokenString, secret string) error {
 	return nil
 }
 
+type Claim interface {
+	string | float64
+}
+
 // GetClaim retrieves a claim value with the given key from the given JWT token.
 func GetClaim[T Claim](tokenString, secret, key string) (T, error) {
 	var value T
 
-	token, err := parse(tokenString, secret)
+	token, err := token.Parse(tokenString, secret)
 	if err != nil || !token.Valid {
 		return value, ErrInvalidToken
 	}
@@ -93,14 +91,4 @@ func GetClaim[T Claim](tokenString, secret, key string) (T, error) {
 	}
 
 	return value, nil
-}
-
-func parse(tokenString, secret string) (*jwt.Token, error) {
-	return jwt.Parse(tokenString, func(t *jwt.Token) (any, error) {
-		_, ok := t.Method.(*jwt.SigningMethodHMAC)
-		if !ok {
-			return nil, ErrInvalidToken
-		}
-		return []byte(secret), nil
-	})
 }
