@@ -1,11 +1,9 @@
 package rest
 
 import (
-	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"net/http"
 	"time"
 
@@ -93,23 +91,6 @@ func (s *Server) initRoutes() {
 	r.HandleFunc("/login", s.handleLogin).Methods("POST")
 
 	s.Handler = r
-}
-
-func (s *Server) logMiddleware(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		ip, endpoint, method := r.RemoteAddr, r.URL.Path, r.Method
-
-		body, err := io.ReadAll(r.Body)
-		if err != nil {
-			s.respondWithError(w, http.StatusInternalServerError, ErrMsgInternalServerError)
-			return
-		}
-		r.Body = io.NopCloser(bytes.NewBuffer(body))
-
-		logger.Info(fmt.Sprintf("Received request from [%s] to [%s] with method [%s] and body [%s]", ip, endpoint, method, string(body)))
-
-		next.ServeHTTP(w, r)
-	})
 }
 
 func (s *Server) handleRegister(w http.ResponseWriter, r *http.Request) {
