@@ -32,13 +32,13 @@ type UserService interface {
 	LoginUser(context.Context, *dto.UserLoginDTO) (*dto.TokenDTO, error)
 }
 
-// UserServiceImpl is the concrete implementation of the UserService interface.
+// UserServiceImpl implements the UserService interface.
 type UserServiceImpl struct {
 	tokenService   UserTokenService
 	userRepository repository.UserRepository
 }
 
-// NewUserService creates a new instance of UserServiceImpl.
+// NewUserService creates a new UserServiceImpl instance with the provided tokenService and userRepository.
 func NewUserService(tokenService UserTokenService, userRepository repository.UserRepository) *UserServiceImpl {
 	return &UserServiceImpl{
 		tokenService:   tokenService,
@@ -46,7 +46,6 @@ func NewUserService(tokenService UserTokenService, userRepository repository.Use
 	}
 }
 
-// RegisterUser registers a new user.
 func (us *UserServiceImpl) RegisterUser(ctx context.Context, userRegister *dto.UserRegisterDTO) (*dto.UserDTO, error) {
 	if !us.validateUsername(userRegister.Username) {
 		return nil, ErrInvalidUsername
@@ -85,7 +84,6 @@ func (us *UserServiceImpl) RegisterUser(ctx context.Context, userRegister *dto.U
 	}, nil
 }
 
-// LoginUser performs user authentication.
 func (us *UserServiceImpl) LoginUser(ctx context.Context, userLogin *dto.UserLoginDTO) (*dto.TokenDTO, error) {
 	user, err := us.userRepository.GetUserByUsername(ctx, userLogin.Username)
 	if err != nil {

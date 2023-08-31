@@ -29,7 +29,7 @@ type UserTokenServiceImpl struct {
 	duration time.Duration
 }
 
-// NewUserTokenService creates a new UserTokenServiceImpl instance with the provided secret.
+// NewUserTokenService creates a new UserTokenServiceImpl instance with the provided secret and duration.
 func NewUserTokenService(secret string, duration time.Duration) *UserTokenServiceImpl {
 	return &UserTokenServiceImpl{
 		secret:   secret,
@@ -37,8 +37,6 @@ func NewUserTokenService(secret string, duration time.Duration) *UserTokenServic
 	}
 }
 
-// GenerateToken generates a token for a given id and user name.
-// It returns the generated token and an error if the generation fails.
 func (s *UserTokenServiceImpl) GenerateToken(id int, userName string) (string, error) {
 	token, err := token.Generate(id, userName, s.duration, s.secret)
 	if err != nil {
@@ -47,7 +45,6 @@ func (s *UserTokenServiceImpl) GenerateToken(id int, userName string) (string, e
 	return token, nil
 }
 
-// ValidateToken validates a token and returns an error if it's invalid.
 func (s *UserTokenServiceImpl) ValidateToken(t string) error {
 	if err := token.Validate(t, s.secret); err != nil {
 		return ErrInvalidChatToken
@@ -55,8 +52,6 @@ func (s *UserTokenServiceImpl) ValidateToken(t string) error {
 	return nil
 }
 
-// GetUserIDFromToken retrieves the id from a token.
-// It returns the id and an error if the retrieval fails.
 func (s *UserTokenServiceImpl) GetUserIDFromToken(t string) (int, error) {
 	userID, err := token.GetClaim[float64](t, s.secret, token.ClaimUserIDKey)
 	if err != nil {
@@ -65,8 +60,6 @@ func (s *UserTokenServiceImpl) GetUserIDFromToken(t string) (int, error) {
 	return int(userID), nil
 }
 
-// GetUserNameFromToken retrieves the user name from a token.
-// It returns the user name and an error if the retrieval fails.
 func (s *UserTokenServiceImpl) GetUserNameFromToken(t string) (string, error) {
 	userName, err := token.GetClaim[string](t, s.secret, token.ClaimUserNameKey)
 	if err != nil {

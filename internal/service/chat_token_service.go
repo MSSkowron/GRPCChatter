@@ -40,8 +40,6 @@ func NewChatTokenService(secret string) *ChatTokenServiceImpl {
 	}
 }
 
-// GenerateToken generates a token for a given username and short code.
-// It returns the generated token and an error if the generation fails.
 func (s *ChatTokenServiceImpl) GenerateToken(username, shortCode string) (string, error) {
 	token, err := token.Generate(username, shortCode, s.secret)
 	if err != nil {
@@ -50,7 +48,6 @@ func (s *ChatTokenServiceImpl) GenerateToken(username, shortCode string) (string
 	return token, nil
 }
 
-// ValidateToken validates a token and returns an error if it's invalid.
 func (s *ChatTokenServiceImpl) ValidateToken(t string) error {
 	if err := token.Validate(t, s.secret); err != nil {
 		return ErrInvalidChatToken
@@ -58,8 +55,6 @@ func (s *ChatTokenServiceImpl) ValidateToken(t string) error {
 	return nil
 }
 
-// GetUserNameFromToken retrieves the username from a token.
-// It returns the username and an error if the retrieval fails.
 func (s *ChatTokenServiceImpl) GetUserNameFromToken(t string) (string, error) {
 	userName, err := token.GetClaim(t, s.secret, token.ClaimUserNameKey)
 	if err != nil {
@@ -68,8 +63,6 @@ func (s *ChatTokenServiceImpl) GetUserNameFromToken(t string) (string, error) {
 	return userName, nil
 }
 
-// GetShortCodeFromToken retrieves the short code from a token.
-// It returns the short code and an error if the retrieval fails.
 func (s *ChatTokenServiceImpl) GetShortCodeFromToken(t string) (string, error) {
 	shortCode, err := token.GetClaim(t, s.secret, token.ClaimShortCodeKey)
 	if err != nil {
