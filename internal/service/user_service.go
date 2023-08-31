@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"errors"
 	"strings"
 	"time"
@@ -25,10 +26,10 @@ var (
 // UserService defines the interface for user-related operations.
 type UserService interface {
 	// RegisterUser registers a new user.
-	RegisterUser(*dto.UserRegisterDTO) (*dto.UserDTO, error)
+	RegisterUser(context.Context, *dto.UserRegisterDTO) (*dto.UserDTO, error)
 
 	// LoginUser performs user authentication.
-	LoginUser(*dto.UserLoginDTO) (*dto.TokenDTO, error)
+	LoginUser(context.Context, *dto.UserLoginDTO) (*dto.TokenDTO, error)
 }
 
 // UserServiceImpl is the concrete implementation of the UserService interface.
@@ -46,7 +47,7 @@ func NewUserService(tokenService UserTokenService, userRepository repository.Use
 }
 
 // RegisterUser registers a new user.
-func (us *UserServiceImpl) RegisterUser(userRegister *dto.UserRegisterDTO) (*dto.UserDTO, error) {
+func (us *UserServiceImpl) RegisterUser(ctx context.Context, userRegister *dto.UserRegisterDTO) (*dto.UserDTO, error) {
 	if !us.validateUsername(userRegister.Username) {
 		return nil, ErrInvalidUsername
 	}
@@ -54,7 +55,11 @@ func (us *UserServiceImpl) RegisterUser(userRegister *dto.UserRegisterDTO) (*dto
 		return nil, ErrInvalidPassword
 	}
 
-	if user, _ := us.userRepository.GetUserByUsername(userRegister.Username); user != nil {
+	user, err := us.userRepository.GetUserByUsername(ctx, userRegister.Username)
+	if err != nil {
+		return nil, err
+	}
+	if user != nil {
 		return nil, ErrUserAlreadyExists
 	}
 
@@ -64,7 +69,7 @@ func (us *UserServiceImpl) RegisterUser(userRegister *dto.UserRegisterDTO) (*dto
 	}
 
 	currTime := time.Now()
-	id, err := us.userRepository.AddUser(&model.User{
+	id, err := us.userRepository.AddUser(ctx, &model.User{
 		CreatedAt: currTime,
 		Username:  userRegister.Username,
 		Password:  hashedPassword,
@@ -81,8 +86,8 @@ func (us *UserServiceImpl) RegisterUser(userRegister *dto.UserRegisterDTO) (*dto
 }
 
 // LoginUser performs user authentication.
-func (us *UserServiceImpl) LoginUser(userLogin *dto.UserLoginDTO) (*dto.TokenDTO, error) {
-	user, _ := us.userRepository.GetUserByUsername(userLogin.Username)
+func (us *UserServiceImpl) LoginUser(ctx context.Context, userLogin *dto.UserLoginDTO) (*dto.TokenDTO, error) {
+	user, _ := us.userRepository.GetUserByUsername(ctx, userLogin.Username)
 	if user == nil {
 		return nil, ErrInvalidCredentials
 	}

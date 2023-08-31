@@ -110,7 +110,7 @@ func (s *Server) handleRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userDTO, err := s.userService.RegisterUser(registerDTO)
+	userDTO, err := s.userService.RegisterUser(r.Context(), registerDTO)
 	if err != nil {
 		s.respondWithError(w, http.StatusInternalServerError, "Internal server error")
 		return
@@ -126,7 +126,7 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tokenDTO, err := s.userService.LoginUser(loginDTO)
+	tokenDTO, err := s.userService.LoginUser(r.Context(), loginDTO)
 	if err != nil {
 		s.respondWithError(w, http.StatusInternalServerError, "Internal server error")
 		return
