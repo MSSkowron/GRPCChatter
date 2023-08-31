@@ -31,6 +31,7 @@ func Run() error {
 	if err != nil {
 		return fmt.Errorf("failed to create database: %w", err)
 	}
+	defer database.Close()
 
 	userRepository := repository.NewUserRepository(database)
 
