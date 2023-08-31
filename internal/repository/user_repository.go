@@ -9,19 +9,33 @@ import (
 	"github.com/MSSkowron/GRPCChatter/internal/model"
 )
 
+// UserRepository is an interface that defines the methods required for user data management.
 type UserRepository interface {
+	// AddUser adds a new user to the database.
 	AddUser(ctx context.Context, user *model.User) (userID int, err error)
+
+	// DeleteUser deletes a user from the database by their userID.
 	DeleteUser(ctx context.Context, userID int) (err error)
+
+	// GetUserByID retrieves a user from the database by their userID.
 	GetUserByID(ctx context.Context, userID int) (user *model.User, err error)
+
+	// GetUserByUsername retrieves a user from the database by their username.
 	GetUserByUsername(ctx context.Context, username string) (user *model.User, err error)
+
+	// GetAllUsers retrieves all users from the database.
 	GetAllUsers(ctx context.Context) (users []*model.User, err error)
+
+	// UpdateUser updates a user's information in the database.
 	UpdateUser(ctx context.Context, user *model.User) (err error)
 }
 
+// UserRepositoryImpl implements the UserRepository interface.
 type UserRepositoryImpl struct {
 	db database.Database
 }
 
+// NewUserRepository creates a new UserRepositoryImpl instance with the provided database.
 func NewUserRepository(db database.Database) *UserRepositoryImpl {
 	return &UserRepositoryImpl{
 		db: db,
