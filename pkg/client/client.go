@@ -101,7 +101,6 @@ func (c *Client) JoinChatRoom(shortCode string, password string) error {
 	}
 
 	resp, err := c.grpcClient.JoinChatRoom(context.Background(), &proto.JoinChatRoomRequest{
-		UserName:     c.name,
 		ShortCode:    shortCode,
 		RoomPassword: password,
 	})

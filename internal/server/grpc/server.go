@@ -118,6 +118,8 @@ func (s *Server) ListenAndServe() error {
 
 // CreateChatRoom is an RPC handler that creates a new chat room.
 func (s *Server) CreateChatRoom(ctx context.Context, req *proto.CreateChatRoomRequest) (*proto.CreateChatRoomResponse, error) {
+	userName := ctx.Value(contextKeyUserName).(string)
+
 	roomName := req.GetRoomName()
 	roomPassword := req.GetRoomPassword()
 
@@ -127,7 +129,7 @@ func (s *Server) CreateChatRoom(ctx context.Context, req *proto.CreateChatRoomRe
 		return nil, status.Error(codes.Internal, "Internal server error while adding user to chat room.")
 	}
 
-	logger.Info(fmt.Sprintf("Created room [%s] with short code [%s]", roomName, roomShortCode))
+	logger.Info(fmt.Sprintf("User [Username: %s] created room [%s] with short code [%s]", userName, roomName, roomShortCode))
 
 	return &proto.CreateChatRoomResponse{
 		ShortCode: string(roomShortCode),
@@ -136,7 +138,8 @@ func (s *Server) CreateChatRoom(ctx context.Context, req *proto.CreateChatRoomRe
 
 // JoinChatRoom is an RPC handler that allows a user to join an existing chat room.
 func (s *Server) JoinChatRoom(ctx context.Context, req *proto.JoinChatRoomRequest) (*proto.JoinChatRoomResponse, error) {
-	userName := req.GetUserName()
+	userName := ctx.Value(contextKeyUserName).(string)
+
 	roomShortCode := req.GetShortCode()
 	roomPassword := req.GetRoomPassword()
 
@@ -166,14 +169,14 @@ func (s *Server) JoinChatRoom(ctx context.Context, req *proto.JoinChatRoomReques
 		return nil, status.Error(codes.Internal, "Internal server error while adding user to chat room.")
 	}
 
-	logger.Info(fmt.Sprintf("Added user [UserName: %s] to chat room user's list with short code [%s]", userName, roomShortCode))
+	logger.Info(fmt.Sprintf("Added user [Username: %s] to chat room user's list with short code [%s]", userName, roomShortCode))
 
 	token, err := s.chatTokenService.GenerateToken(userName, roomShortCode)
 	if err != nil {
 		return nil, status.Error(codes.Internal, "Internal server error while generating token.")
 	}
 
-	logger.Info(fmt.Sprintf("Generated token [%s] for user [UserName: %s] to chat room with short code [%s]", token, userName, roomShortCode))
+	logger.Info(fmt.Sprintf("Generated token [%s] for user [Username: %s] to chat room with short code [%s]", token, userName, roomShortCode))
 
 	return &proto.JoinChatRoomResponse{
 		Token: token,

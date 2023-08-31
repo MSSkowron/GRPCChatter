@@ -14,9 +14,8 @@ message CreateChatRoomResponse {
 }
 
 message JoinChatRoomRequest {
-    string user_name = 1;
-    string short_code = 2;
-    string room_password = 3;
+    string short_code = 1;
+    string room_password = 2;
 }
 
 message JoinChatRoomResponse {
