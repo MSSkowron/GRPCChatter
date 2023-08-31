@@ -234,7 +234,7 @@ func (s *Server) JoinChatRoom(ctx context.Context, req *proto.JoinChatRoomReques
 		if errors.Is(err, service.ErrRoomDoesNotExist) {
 			return nil, status.Errorf(codes.NotFound, "Chat room with short code [%s] not found. Please check the provided short code.", roomShortCode)
 		}
-		if errors.Is(err, service.ErrInvalidPassword) {
+		if errors.Is(err, service.ErrInvalidRoomPassword) {
 			return nil, status.Errorf(codes.PermissionDenied, "Invalid room password for chat room with short code [%s]. Please make sure you have the correct password.", roomShortCode)
 		}
 

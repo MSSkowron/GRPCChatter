@@ -110,7 +110,7 @@ func (crs *RoomServiceImpl) CheckPassword(shortCode, password string) error {
 
 	if err := crypto.CheckPassword(password, room.password); err != nil {
 		if errors.Is(err, crypto.ErrInvalidCredentials) {
-			return ErrInvalidPassword
+			return ErrInvalidRoomPassword
 		}
 
 		return err

@@ -12,6 +12,7 @@ import (
 	"github.com/MSSkowron/GRPCChatter/internal/dto"
 	"github.com/MSSkowron/GRPCChatter/internal/service"
 	"github.com/MSSkowron/GRPCChatter/pkg/logger"
+	"github.com/MSSkowron/GRPCChatter/pkg/validation"
 	"github.com/gorilla/mux"
 )
 
@@ -121,9 +122,9 @@ func (s *Server) handleRegister(w http.ResponseWriter, r *http.Request) {
 	userDTO, err := s.userService.RegisterUser(r.Context(), registerDTO)
 	if err != nil {
 		switch {
-		case errors.Is(err, service.ErrInvalidUsername):
+		case errors.Is(err, validation.ErrInvalidUsername):
 			s.respondWithError(w, http.StatusBadRequest, fmt.Sprintf("%s:%s", ErrMsgBadRequestInvalidRequestBody, err))
-		case errors.Is(err, service.ErrInvalidPassword):
+		case errors.Is(err, validation.ErrInvalidPassword):
 			s.respondWithError(w, http.StatusBadRequest, fmt.Sprintf("%s:%s", ErrMsgBadRequestInvalidRequestBody, err))
 		case errors.Is(err, service.ErrUserAlreadyExists):
 			s.respondWithError(w, http.StatusBadRequest, fmt.Sprintf("%s:%s", ErrMsgBadRequestInvalidRequestBody, err))
