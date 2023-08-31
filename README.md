@@ -35,6 +35,12 @@ The architecture of the GRPCChatter is designed with a layered approach to ensur
 
 - **Database Layer**: Specifically designed to interact with the underlying database system, which in this case is PostgreSQL. It abstracts the database operations, allowing the application to work with the database without needing to know the intricacies of SQL queries and database connections. The implementation is located in the [**database**](./internal/database) package.
 
+## Database schema
+
+![Database schema](./docs/database_schema.png)
+
+The database revolves around the **users** table, storing essential user account information.
+
 ## Features
 
 - **User Authentication and Authorization**: GRPCChatter implements user authentication through usernames and passwords via the REST Server. It generates JWT tokens, ensuring that only authenticated users can access the gRPC Server, maintaining a secure environment.
