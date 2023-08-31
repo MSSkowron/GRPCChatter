@@ -87,7 +87,10 @@ func (us *UserServiceImpl) RegisterUser(ctx context.Context, userRegister *dto.U
 
 // LoginUser performs user authentication.
 func (us *UserServiceImpl) LoginUser(ctx context.Context, userLogin *dto.UserLoginDTO) (*dto.TokenDTO, error) {
-	user, _ := us.userRepository.GetUserByUsername(ctx, userLogin.Username)
+	user, err := us.userRepository.GetUserByUsername(ctx, userLogin.Username)
+	if err != nil {
+		return nil, err
+	}
 	if user == nil {
 		return nil, ErrInvalidCredentials
 	}
