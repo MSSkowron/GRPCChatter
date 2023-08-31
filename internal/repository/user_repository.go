@@ -6,7 +6,7 @@ import (
 )
 
 type UserRepository interface {
-	AddUser(user *model.User) (*model.User, error)
+	AddUser(user *model.User) (int, error)
 	DeleteUser(userID int) error
 	GetUserByID(userID int) (*model.User, error)
 	GetUserByUsername(username string) (*model.User, error)
@@ -24,8 +24,8 @@ func NewUserRepository(db database.Database) *UserRepositoryImpl {
 	}
 }
 
-func (ur *UserRepositoryImpl) AddUser(user *model.User) (*model.User, error) {
-	return nil, nil
+func (ur *UserRepositoryImpl) AddUser(user *model.User) (int, error) {
+	return 0, nil
 }
 
 func (ur *UserRepositoryImpl) DeleteUser(userID int) error {

@@ -12,10 +12,10 @@ var (
 	ErrRoomAlreadyExist = errors.New("room with the provided short code already exists")
 	// ErrRoomDoesNotExist is returned when a requested room is not found.
 	ErrRoomDoesNotExist = errors.New("room not found")
-	// ErrInvalidPassword is returned when a provided password is invalid.
-	ErrInvalidPassword = errors.New("invalid password")
-	// ErrUserAlreadyExists is returned when a user with the provided user name already exists in the chat room.
-	ErrUserAlreadyExists = errors.New("user with the provided user name already exists in the chat room")
+	// ErrInvalidRoomPassword is returned when a provided password is invalid.
+	ErrInvalidRoomPassword = errors.New("invalid password")
+	// ErrUserAlreadyInRoom is returned when a user with the provided user name is already present in the chat room.
+	ErrUserAlreadyInRoom = errors.New("user with the provided user name is already in the chat room")
 	// ErrUserNotFound is returned when a requested user is not found.
 	ErrUserNotFound = errors.New("user not found")
 	// ErrUserMessageQueueClosed is returned when a user's message queue is closed.
