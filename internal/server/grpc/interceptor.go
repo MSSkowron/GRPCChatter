@@ -8,6 +8,7 @@ import (
 	"github.com/MSSkowron/GRPCChatter/internal/service"
 	"github.com/MSSkowron/GRPCChatter/pkg/logger"
 	"github.com/MSSkowron/GRPCChatter/pkg/wrapper"
+	"github.com/google/uuid"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
@@ -15,7 +16,11 @@ import (
 )
 
 func (s *Server) unaryLogInterceptor(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (any, error) {
-	logger.Info(fmt.Sprintf("Received Unary RPC [%s] call with [%v]", info.FullMethod, req))
+	id := uuid.New().String()
+
+	logger.Info(fmt.Sprintf("Received Unary RPC [ID: %s] [Method: %s] with [%v]", id, info.FullMethod, req))
+
+	ctx = context.WithValue(ctx, contextKeyRPCID, id)
 
 	return handler(ctx, req)
 }
@@ -46,9 +51,16 @@ func (s *Server) unaryAuthorizationInterceptor(ctx context.Context, req any, inf
 }
 
 func (s *Server) streamLogInterceptor(srv any, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
-	logger.Info(fmt.Sprintf("Received Stream RPC [%s] call with [%v]", info.FullMethod, srv))
+	id := uuid.New().String()
 
-	return handler(srv, ss)
+	logger.Info(fmt.Sprintf("Received Stream RPC [ID: %s] [Method: %s] call with [%v]", id, info.FullMethod, srv))
+
+	ctx := context.WithValue(ss.Context(), contextKeyRPCID, id)
+
+	wrapped := wrapper.WrapServerStream(ss)
+	wrapped.SetContext(ctx)
+
+	return handler(srv, wrapped)
 }
 
 func (s *Server) streamAuthorizationInterceptor(srv any, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
