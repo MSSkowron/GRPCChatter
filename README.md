@@ -165,13 +165,13 @@ The gRPC Server serves as the backbone of the GRPCChatter application, responsib
 
 The GRPCChatter Client is responsible for managing the client-side logic of the GRPCChatter application. It provides methods for creating chat rooms, joining chat rooms, sending messages, and receiving messages from the server. Client package is located [**here**](./pkg/client). Below are the methods supported by the client, along with their descriptions:
 
-- **CreateAccount**: This method allows users to create a client account by providing a desired username and password.
+- **Register**: Allows users to create a client account by providing a username and password.
 
-- **LogIn**: The LogIn method enables the client's connection to the chat server.
+- **Login**: Enables the client's connection to the chat server.
 
-- **CreateChatRoom**: Create a new chat room with a specified name and password. Upon successful creation, it returns the shortcode associated with the newly formed chat room. Prior to utilizing this feature, the LogIn method must be invoked to establish the client's identity.
+- **CreateChatRoom**: Create a new chat room with a specified name and password. Upon successful creation, it returns the shortcode associated with the newly formed chat room. Prior to utilizing this feature, the Login method must be invoked to establish the client's identity.
 
-- **JoinChatRoom**: This method connects the client to a designated chat room, enabling seamless message transmission and reception. If the client isn't already connected, it initiates the connection, joins the chat room, and establishes a bidirectional stream for real-time communication. The LogIn method must be executed before the initial usage.
+- **JoinChatRoom**: This method connects the client to a designated chat room, enabling seamless message transmission and reception. If the client isn't already connected, it initiates the connection, joins the chat room, and establishes a bidirectional stream for real-time communication. The Login method must be executed before the initial usage.
 
 - **ListChatRoomUsers**: Retrieve a list of users currently active within a chat room, based on the provided short access code. This method proves invaluable for promptly identifying all users currently online within a specific chat room. To utilize this functionality, the JoinChatRoom method should be invoked prior to use.
 
