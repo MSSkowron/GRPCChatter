@@ -128,7 +128,7 @@ func (s *Server) CreateChatRoom(ctx context.Context, req *proto.CreateChatRoomRe
 
 	roomShortCode := s.shortCodeService.GenerateShortCode(roomName)
 
-	if err := s.roomService.CreateRoom(roomShortCode, roomName, roomPassword); err != nil {
+	if err := s.roomService.CreateRoom(roomShortCode, roomName, roomPassword, userName); err != nil {
 		return nil, status.Error(codes.Internal, "Internal server error while adding user to chat room.")
 	}
 
@@ -145,9 +145,12 @@ func (s *Server) DeleteChatRoom(ctx context.Context, req *proto.DeleteChatRoomRe
 
 	roomShortCode := req.GetShortCode()
 
-	if err := s.roomService.DeleteRoom(roomShortCode); err != nil {
+	if err := s.roomService.DeleteRoom(roomShortCode, userName); err != nil {
 		if errors.Is(err, service.ErrRoomDoesNotExist) {
 			return nil, status.Errorf(codes.NotFound, "Chat room with short code [%s] not found. Please check the provided short code.", roomShortCode)
+		}
+		if errors.Is(err, service.ErrNotOwner) {
+			return nil, status.Errorf(codes.PermissionDenied, "You are not the owner of the chat room with short code [%s].", roomShortCode)
 		}
 		return nil, status.Error(codes.Internal, "Internal server error while adding user to chat room.")
 	}

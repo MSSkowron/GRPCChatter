@@ -20,6 +20,8 @@ var (
 	ErrUserNotFound = errors.New("user not found")
 	// ErrUserMessageQueueClosed is returned when a user's message queue is closed.
 	ErrUserMessageQueueClosed = errors.New("user message queue is closed")
+	// ErrNotOwner is returned when a user is not the owner of the room and is trying to perform an operation that requires owner privileges.
+	ErrNotOwner = errors.New("user is not the owner of the rooom")
 )
 
 // Message represents a chat message with a sender and body.
@@ -40,10 +42,10 @@ type RoomService interface {
 	CheckPassword(shortCode, password string) error
 
 	// CreateRoom creates a new chat room with the given short code, name, and password.
-	CreateRoom(shortCode, name, password string) error
+	CreateRoom(shortCode, name, password, owner string) error
 
 	// DeleteRoom deletes a chat room with the given short code.
-	DeleteRoom(shortCode string) error
+	DeleteRoom(shortCode, userName string) error
 
 	// AddUserToRoom adds a user to a chat room with the given short code and user name.
 	AddUserToRoom(shortCode string, userName string) error
@@ -75,6 +77,7 @@ type room struct {
 	shortCode string
 	name      string
 	password  string
+	owner     string
 	users     map[string]*user
 }
 
@@ -119,7 +122,7 @@ func (crs *RoomServiceImpl) CheckPassword(shortCode, password string) error {
 	return nil
 }
 
-func (crs *RoomServiceImpl) CreateRoom(shortCode, name, password string) error {
+func (crs *RoomServiceImpl) CreateRoom(shortCode, name, password, owner string) error {
 	crs.mu.Lock()
 	defer crs.mu.Unlock()
 
@@ -136,19 +139,24 @@ func (crs *RoomServiceImpl) CreateRoom(shortCode, name, password string) error {
 		shortCode: shortCode,
 		name:      name,
 		password:  hashedPassword,
+		owner:     owner,
 		users:     make(map[string]*user),
 	}
 
 	return nil
 }
 
-func (crs *RoomServiceImpl) DeleteRoom(shortCode string) error {
+func (crs *RoomServiceImpl) DeleteRoom(shortCode, userName string) error {
 	crs.mu.Lock()
 	defer crs.mu.Unlock()
 
 	room, ok := crs.rooms[shortCode]
 	if !ok {
 		return ErrRoomDoesNotExist
+	}
+
+	if room.owner != userName {
+		return ErrNotOwner
 	}
 
 	for _, user := range room.users {
