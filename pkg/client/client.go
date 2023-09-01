@@ -14,6 +14,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/metadata"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 var (
@@ -231,7 +232,7 @@ func (c *Client) ListChatRoomUsers() ([]string, error) {
 		"token": c.chatToken,
 	})
 	ctx := metadata.NewOutgoingContext(context.Background(), md)
-	resp, err := c.grpcClient.ListChatRoomUsers(ctx, &proto.ListChatRoomUsersRequest{})
+	resp, err := c.grpcClient.ListChatRoomUsers(ctx, &emptypb.Empty{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to list the chat room users: %w", err)
 	}

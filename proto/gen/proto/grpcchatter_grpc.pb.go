@@ -11,6 +11,7 @@ import (
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
+	emptypb "google.golang.org/protobuf/types/known/emptypb"
 )
 
 // This is a compile-time assertion to ensure that this generated file
@@ -20,6 +21,7 @@ const _ = grpc.SupportPackageIsVersion7
 
 const (
 	GRPCChatter_CreateChatRoom_FullMethodName    = "/proto.GRPCChatter/CreateChatRoom"
+	GRPCChatter_DeleteChatRoom_FullMethodName    = "/proto.GRPCChatter/DeleteChatRoom"
 	GRPCChatter_JoinChatRoom_FullMethodName      = "/proto.GRPCChatter/JoinChatRoom"
 	GRPCChatter_ListChatRoomUsers_FullMethodName = "/proto.GRPCChatter/ListChatRoomUsers"
 	GRPCChatter_Chat_FullMethodName              = "/proto.GRPCChatter/Chat"
@@ -30,8 +32,9 @@ const (
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type GRPCChatterClient interface {
 	CreateChatRoom(ctx context.Context, in *CreateChatRoomRequest, opts ...grpc.CallOption) (*CreateChatRoomResponse, error)
+	DeleteChatRoom(ctx context.Context, in *DeleteChatRoomRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	JoinChatRoom(ctx context.Context, in *JoinChatRoomRequest, opts ...grpc.CallOption) (*JoinChatRoomResponse, error)
-	ListChatRoomUsers(ctx context.Context, in *ListChatRoomUsersRequest, opts ...grpc.CallOption) (*ListChatRoomUsersResponse, error)
+	ListChatRoomUsers(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*ListChatRoomUsersResponse, error)
 	Chat(ctx context.Context, opts ...grpc.CallOption) (GRPCChatter_ChatClient, error)
 }
 
@@ -52,6 +55,15 @@ func (c *gRPCChatterClient) CreateChatRoom(ctx context.Context, in *CreateChatRo
 	return out, nil
 }
 
+func (c *gRPCChatterClient) DeleteChatRoom(ctx context.Context, in *DeleteChatRoomRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, GRPCChatter_DeleteChatRoom_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *gRPCChatterClient) JoinChatRoom(ctx context.Context, in *JoinChatRoomRequest, opts ...grpc.CallOption) (*JoinChatRoomResponse, error) {
 	out := new(JoinChatRoomResponse)
 	err := c.cc.Invoke(ctx, GRPCChatter_JoinChatRoom_FullMethodName, in, out, opts...)
@@ -61,7 +73,7 @@ func (c *gRPCChatterClient) JoinChatRoom(ctx context.Context, in *JoinChatRoomRe
 	return out, nil
 }
 
-func (c *gRPCChatterClient) ListChatRoomUsers(ctx context.Context, in *ListChatRoomUsersRequest, opts ...grpc.CallOption) (*ListChatRoomUsersResponse, error) {
+func (c *gRPCChatterClient) ListChatRoomUsers(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*ListChatRoomUsersResponse, error) {
 	out := new(ListChatRoomUsersResponse)
 	err := c.cc.Invoke(ctx, GRPCChatter_ListChatRoomUsers_FullMethodName, in, out, opts...)
 	if err != nil {
@@ -106,8 +118,9 @@ func (x *gRPCChatterChatClient) Recv() (*ServerMessage, error) {
 // for forward compatibility
 type GRPCChatterServer interface {
 	CreateChatRoom(context.Context, *CreateChatRoomRequest) (*CreateChatRoomResponse, error)
+	DeleteChatRoom(context.Context, *DeleteChatRoomRequest) (*emptypb.Empty, error)
 	JoinChatRoom(context.Context, *JoinChatRoomRequest) (*JoinChatRoomResponse, error)
-	ListChatRoomUsers(context.Context, *ListChatRoomUsersRequest) (*ListChatRoomUsersResponse, error)
+	ListChatRoomUsers(context.Context, *emptypb.Empty) (*ListChatRoomUsersResponse, error)
 	Chat(GRPCChatter_ChatServer) error
 }
 
@@ -118,10 +131,13 @@ type UnimplementedGRPCChatterServer struct {
 func (UnimplementedGRPCChatterServer) CreateChatRoom(context.Context, *CreateChatRoomRequest) (*CreateChatRoomResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CreateChatRoom not implemented")
 }
+func (UnimplementedGRPCChatterServer) DeleteChatRoom(context.Context, *DeleteChatRoomRequest) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DeleteChatRoom not implemented")
+}
 func (UnimplementedGRPCChatterServer) JoinChatRoom(context.Context, *JoinChatRoomRequest) (*JoinChatRoomResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method JoinChatRoom not implemented")
 }
-func (UnimplementedGRPCChatterServer) ListChatRoomUsers(context.Context, *ListChatRoomUsersRequest) (*ListChatRoomUsersResponse, error) {
+func (UnimplementedGRPCChatterServer) ListChatRoomUsers(context.Context, *emptypb.Empty) (*ListChatRoomUsersResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListChatRoomUsers not implemented")
 }
 func (UnimplementedGRPCChatterServer) Chat(GRPCChatter_ChatServer) error {
@@ -157,6 +173,24 @@ func _GRPCChatter_CreateChatRoom_Handler(srv interface{}, ctx context.Context, d
 	return interceptor(ctx, in, info, handler)
 }
 
+func _GRPCChatter_DeleteChatRoom_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteChatRoomRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(GRPCChatterServer).DeleteChatRoom(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: GRPCChatter_DeleteChatRoom_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(GRPCChatterServer).DeleteChatRoom(ctx, req.(*DeleteChatRoomRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _GRPCChatter_JoinChatRoom_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(JoinChatRoomRequest)
 	if err := dec(in); err != nil {
@@ -176,7 +210,7 @@ func _GRPCChatter_JoinChatRoom_Handler(srv interface{}, ctx context.Context, dec
 }
 
 func _GRPCChatter_ListChatRoomUsers_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(ListChatRoomUsersRequest)
+	in := new(emptypb.Empty)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -188,7 +222,7 @@ func _GRPCChatter_ListChatRoomUsers_Handler(srv interface{}, ctx context.Context
 		FullMethod: GRPCChatter_ListChatRoomUsers_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(GRPCChatterServer).ListChatRoomUsers(ctx, req.(*ListChatRoomUsersRequest))
+		return srv.(GRPCChatterServer).ListChatRoomUsers(ctx, req.(*emptypb.Empty))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -229,6 +263,10 @@ var GRPCChatter_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "CreateChatRoom",
 			Handler:    _GRPCChatter_CreateChatRoom_Handler,
+		},
+		{
+			MethodName: "DeleteChatRoom",
+			Handler:    _GRPCChatter_DeleteChatRoom_Handler,
 		},
 		{
 			MethodName: "JoinChatRoom",

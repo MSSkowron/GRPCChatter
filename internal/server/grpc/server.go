@@ -14,6 +14,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 type contextKey string
@@ -185,7 +186,7 @@ func (s *Server) JoinChatRoom(ctx context.Context, req *proto.JoinChatRoomReques
 }
 
 // ListChatRoomUsers is an RPC handler that lists the users in a chat room.
-func (s *Server) ListChatRoomUsers(ctx context.Context, req *proto.ListChatRoomUsersRequest) (*proto.ListChatRoomUsersResponse, error) {
+func (s *Server) ListChatRoomUsers(ctx context.Context, req *emptypb.Empty) (*proto.ListChatRoomUsersResponse, error) {
 	rpcID, shortCode, userName := ctx.Value(contextKeyRPCID).(string), ctx.Value(contextKeyShortCode).(string), ctx.Value(contextKeyUserName).(string)
 
 	users, err := s.roomService.GetRoomUsers(shortCode)
