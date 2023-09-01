@@ -14,6 +14,8 @@ import (
 	"github.com/gorilla/mux"
 )
 
+type contextKey string
+
 const (
 	// DefaultPort is the default port the server listens on.
 	DefaultPort = 5000
@@ -23,6 +25,8 @@ const (
 	DefaultWriteTimeout = 15 * time.Second
 	// DefaultReadTimeout is the default read timeout for incoming requests.
 	DefaultReadTimeout = 15 * time.Second
+
+	contextKeyReqID = contextKey("reqID")
 
 	// ErrMsgUnauthorized is a http response body message for unauthorized status code.
 	ErrMsgUnauthorized = "Unauthorized"
