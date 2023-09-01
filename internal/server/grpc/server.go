@@ -61,6 +61,7 @@ func NewServer(chatTokenService service.ChatTokenService, userTokenService servi
 		port:             DefaultPort,
 		authorizedUserTokenUnaryMethods: map[string]struct{}{
 			"/proto.GRPCChatter/CreateChatRoom": {},
+			"/proto.GRPCChatter/DeleteChatRoom": {},
 			"/proto.GRPCChatter/JoinChatRoom":   {},
 		},
 		authorizedChatTokenUnaryMethods: map[string]struct{}{
@@ -136,6 +137,24 @@ func (s *Server) CreateChatRoom(ctx context.Context, req *proto.CreateChatRoomRe
 	return &proto.CreateChatRoomResponse{
 		ShortCode: string(roomShortCode),
 	}, nil
+}
+
+// DeleteChatRoom is an RPC handler that deletes a chat room.
+func (s *Server) DeleteChatRoom(ctx context.Context, req *proto.DeleteChatRoomRequest) (*emptypb.Empty, error) {
+	rpcID, userName := ctx.Value(contextKeyRPCID).(string), ctx.Value(contextKeyUserName).(string)
+
+	roomShortCode := req.GetShortCode()
+
+	if err := s.roomService.DeleteRoom(roomShortCode); err != nil {
+		if errors.Is(err, service.ErrRoomDoesNotExist) {
+			return nil, status.Errorf(codes.NotFound, "Chat room with short code [%s] not found. Please check the provided short code.", roomShortCode)
+		}
+		return nil, status.Error(codes.Internal, "Internal server error while adding user to chat room.")
+	}
+
+	logger.Info(fmt.Sprintf("[ID: %s]: User [%s] deleted room with short code [%s]", rpcID, userName, roomShortCode))
+
+	return &emptypb.Empty{}, nil
 }
 
 // JoinChatRoom is an RPC handler that allows a user to join an existing chat room.
