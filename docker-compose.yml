@@ -1,0 +1,43 @@
+version: '3.8'
+
+services:
+  database:
+    container_name: grpcchatter_database
+    image: postgres:15
+    restart: on-failure
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - grpcchatter_data:/var/lib/postgresql/data
+      - ./dbscripts/:/docker-entrypoint-initdb.d/
+    networks:
+      - grpcchatter_net
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  server:
+    container_name: grpcchatter_server
+    build: .
+    depends_on:
+      database:
+        condition: service_healthy
+    restart: on-failure
+    networks:
+      - grpcchatter_net
+    ports:
+      - "5000:5000"
+      - "8080:8080"
+
+volumes:
+  grpcchatter_data:
+    driver: local
+
+networks:
+  grpcchatter_net:
+    driver: bridge
