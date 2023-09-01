@@ -171,9 +171,11 @@ In case of errors, the server returns an appropriate status code and JSON in the
 
 The gRPC Server serves as the backbone of the GRPCChatter application, responsible for managing a range of gRPC methods. Below, you'll find a comprehensive list of the supported methods, each accompanied by its respective description:
 
-- **CreateChatRoom**: This method empowers clients to create new chat rooms, complete with customized names and passwords. Upon successful creation, it issues a short access code, which users can later use with the JoinChatRoom method to enter the room. To utilize this feature, clients are required to include a gRPC header with the key `token`, containing a valid JSON Web Token (JWT) acquired from the login REST endpoint.
+- **CreateChatRoom**: Clients can use this method to create new chat rooms, complete with customized names and passwords. Upon successful creation, it issues a short access code, which users can later use with the JoinChatRoom method to enter the room. To utilize this feature, clients must include a gRPC header with the key `token`, containing a valid JSON Web Token (JWT) obtained from the login REST endpoint.
 
-- **JoinChatRoom**: Clients can employ this method to join existing chat rooms by providing the room's short access code and the associated password. In order to access this method, clients must include a gRPC header with the key `token`, containing a valid JSON Web Token (JWT) acquired from the login REST endpoint. Upon successful authentication, this method returns a JWT necessary for facilitating communication within the room.
+- **DeleteChatRoom**: Clients can use this method to delete chat rooms, with only the owner (the client who created the room) having the ability to delete it. To utilize this feature, clients must include a gRPC header with the key `token`, containing a valid JSON Web Token (JWT) obtained from the login REST endpoint.
+
+- **JoinChatRoom**: Clients can employ this method to join existing chat rooms by providing the room's short access code and the associated password. Upon successful authentication, this method returns a JWT necessary for facilitating communication within the room. To utilize this feature, clients must include a gRPC header with the key `token`, containing a valid JSON Web Token (JWT) obtained from the login REST endpoint.
 
 - **ListChatRoomUsers**: This method retrieves a list of users currently present in a chat room, based on the provided short access code. It proves invaluable for promptly listing all users currently online within a specific chat room. To use this feature, clients must attach a gRPC header labeled with the key `token`, containing a valid JSON Web Token (JWT) obtained through the JoinChatRoom method.
 
@@ -183,21 +185,23 @@ The gRPC Server serves as the backbone of the GRPCChatter application, responsib
 
 The GRPCChatter Client is responsible for managing the client-side logic of the GRPCChatter application. It provides methods for creating chat rooms, joining chat rooms, sending messages, and receiving messages from the server. Client package is located [**here**](./pkg/client). Below are the methods supported by the client, along with their descriptions:
 
-- **Register**: Allows users to create a client account by providing a username and password.
+- **Register**: Create a client account by providing a unique username and password.
 
-- **Login**: Enables the client's connection to the chat server.
+- **Login**: Log in, granting access to chat-related commands.
 
-- **CreateChatRoom**: Create a new chat room with a specified name and password. Upon successful creation, it returns the shortcode associated with the newly formed chat room. Prior to utilizing this feature, the Login method must be invoked to establish the client's identity.
+- **CreateChatRoom**: Create a new chat room with a specified name and password. Upon successful creation, it returns the shortcode associated with the newly formed chat room. Before using this feature, clients must invoke the Login method to establish their identity
 
-- **JoinChatRoom**: This method connects the client to a designated chat room, enabling seamless message transmission and reception. If the client isn't already connected, it initiates the connection, joins the chat room, and establishes a bidirectional stream for real-time communication. The Login method must be executed before the initial usage.
+- **DeleteChatRoom**: Delete a chat room if the calling client is the owner of the room. Before using this feature, clients must invoke the Login method to establish their identity.
 
-- **ListChatRoomUsers**: Retrieve a list of users currently active within a chat room, based on the provided short access code. This method proves invaluable for promptly identifying all users currently online within a specific chat room. To utilize this functionality, the JoinChatRoom method should be invoked prior to use.
+- **JoinChatRoom**:  Connect the client to a designated chat room, enabling seamless message transmission and reception. If the client isn't already connected, it initiates the connection, joins the chat room, and establishes a bidirectional stream for real-time communication. Before using this feature, clients must invoke the Login method to establish their identity.
 
-- **Send**: Send a message to the server. This method can either block until the message is successfully sent or return immediately in case of an error. To use this feature, it's essential to invoke the JoinChatRoom method before your first message transmission.
+- **ListChatRoomUsers**: Retrieve a list of users currently active within a chat room, based on the provided short access code. This method is invaluable for promptly identifying all users currently online within a specific chat room. Before using this feature, clients must invoke the JoinChatRoom method.
 
-- **Receive**: Receive messages from the server. This method can either block until a new message arrives or return immediately in case of an error. As with other chat functions, the JoinChatRoom method must be called beforehand.
+- **Send**: Send a message to the server. This method can either block until the message is successfully sent or return immediately in case of an error. Before using this feature, clients must invoke the JoinChatRoom method.
 
-- **Disconnect**: Disconnect the client from the server, gracefully closing the connection between the client and server.
+- **Receive**: Receive messages from the server. This method can either block until a new message arrives or return immediately in case of an error. Before using this feature, clients must invoke the JoinChatRoom method.
+
+- **Disconnect**: Disconnect the client from the server, closing the connection between the client and server.
 
 ## Example
 
