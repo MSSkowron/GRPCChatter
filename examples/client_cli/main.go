@@ -16,45 +16,48 @@ import (
 
 func main() {
 	reader := bufio.NewReader(os.Stdin)
-	fmt.Printf("Enter username: ")
-	userName, err := reader.ReadString('\n')
+
+	fmt.Printf("Enter REST server address: ")
+	restServerAddress, err := reader.ReadString('\n')
 	if err != nil {
 		log.Fatalf("Failed to read username from console: %s\n", err)
 	}
-	userName = strings.Trim(userName, "\r\n")
+	restServerAddress = strings.Trim(restServerAddress, "\r\n")
 
-	fmt.Printf("Enter server address: ")
-	serverAddress, err := reader.ReadString('\n')
+	fmt.Printf("Enter gRPC server address: ")
+	grpcServerAddress, err := reader.ReadString('\n')
 	if err != nil {
 		log.Fatalf("Failed to read username from console: %s\n", err)
 	}
-	serverAddress = strings.Trim(serverAddress, "\r\n")
+	grpcServerAddress = strings.Trim(grpcServerAddress, "\r\n")
 
-	c := client.NewClient(userName, serverAddress)
+	c := client.NewClient(restServerAddress, grpcServerAddress)
 	defer c.Disconnect()
 
 	fmt.Printf("\n")
 	for {
 		fmt.Println("Menu:")
-		fmt.Println("1. Create chat room")
-		fmt.Println("2. Join chat room")
-		fmt.Println("3. Quit")
+		fmt.Println("1. Register")
+		fmt.Println("2. Login")
+		fmt.Println("3. Create chat room")
+		fmt.Println("4. Join chat room")
+		fmt.Println("5. Quit")
 		fmt.Print("> ")
 
 		choice, err := reader.ReadString('\n')
 		if err != nil {
 			log.Fatalf("Failed to read choice from console: %s\n", err)
 		}
-		choice = strings.Trim(choice, "\r\n")
 
+		choice = strings.Trim(choice, "\r\n")
 		switch choice {
 		case "1":
-			fmt.Print("Enter chat room name: ")
-			roomName, err := reader.ReadString('\n')
+			fmt.Print("Enter user name: ")
+			userName, err := reader.ReadString('\n')
 			if err != nil {
-				log.Fatalf("Failed to read chat room name: %s\n", err)
+				log.Fatalf("Failed to read username name: %s\n", err)
 			}
-			roomName = strings.Trim(roomName, "\r\n")
+			userName = strings.Trim(userName, "\r\n")
 
 			fmt.Print("Enter password: ")
 			password, err := readPassword()
@@ -62,22 +65,62 @@ func main() {
 				log.Fatalf("Failed to read password: %s\n", err)
 			}
 
-			shortCode, err := c.CreateChatRoom(roomName, password)
+			if err := c.Register(userName, password); err != nil {
+				log.Printf("\nFailed to register: %s\n", err)
+				continue
+			}
+
+			fmt.Printf("\nRegistered.\n")
+		case "2":
+			fmt.Print("Enter user name: ")
+			userName, err := reader.ReadString('\n')
+			if err != nil {
+				log.Fatalf("Failed to read username name: %s\n", err)
+			}
+			userName = strings.Trim(userName, "\r\n")
+
+			fmt.Print("Enter password: ")
+			password, err := readPassword()
+			if err != nil {
+				log.Fatalf("Failed to read password: %s\n", err)
+			}
+
+			if err := c.Login(userName, password); err != nil {
+				log.Printf("\nFailed to log in: %s\n", err)
+				continue
+			}
+
+			fmt.Printf("\nLogged in.\n")
+		case "3":
+			fmt.Print("Enter name: ")
+			name, err := reader.ReadString('\n')
+			if err != nil {
+				log.Fatalf("Failed to read chat room name: %s\n", err)
+			}
+			name = strings.Trim(name, "\r\n")
+
+			fmt.Print("Enter password: ")
+			password, err := readPassword()
+			if err != nil {
+				log.Fatalf("Failed to read password: %s\n", err)
+			}
+
+			shortCode, err := c.CreateChatRoom(name, password)
 			if err != nil {
 				log.Printf("\nFailed to create chat room: %s\n", err)
 				continue
 			}
 
 			fmt.Printf("\nChat room created. Short code: %s\n", shortCode)
-		case "2":
-			fmt.Print("Enter chat room short code: ")
+		case "4":
+			fmt.Print("Enter short code: ")
 			shortCode, err := reader.ReadString('\n')
 			if err != nil {
 				log.Fatalf("Failed to read chat room short code: %s\n", err)
 			}
 			shortCode = strings.Trim(shortCode, "\r\n")
 
-			fmt.Print("Enter chat room password: ")
+			fmt.Print("Enter password: ")
 			password, err := readPassword()
 			if err != nil {
 				log.Fatalf("Failed to read password: %s\n", err)
@@ -88,7 +131,7 @@ func main() {
 				continue
 			}
 
-			fmt.Printf("\nSuccessfully joined the chat room.\n")
+			fmt.Printf("\nJoined chat room.\n")
 
 			wg := &sync.WaitGroup{}
 			wg.Add(2)
@@ -97,13 +140,13 @@ func main() {
 			sendCh := make(chan struct{}, 1)
 
 			go receiveAndPrintMessages(c, sendCh, receiveCh, wg)
-			go readAndSendMessage(c, receiveCh, sendCh, wg)
+			go readAndSendMessages(c, receiveCh, sendCh, wg)
 
 			wg.Wait()
 
 			close(receiveCh)
 			close(sendCh)
-		case "3":
+		case "5":
 			fmt.Printf("\nGoodbye!\n")
 			return
 		default:
@@ -122,7 +165,7 @@ func receiveAndPrintMessages(c *client.Client, sendStopCh chan<- struct{}, recei
 		default:
 			msg, err := c.Receive()
 			if err != nil {
-				if errors.Is(err, client.ErrConnectionClosed) || errors.Is(err, client.ErrConnectionNotExists) || errors.Is(err, client.ErrStreamNotExists) {
+				if errors.Is(err, client.ErrConnectionClosed) || errors.Is(err, client.ErrConnectionNotExist) || errors.Is(err, client.ErrStreamNotExist) {
 					log.Println("Failed to receive message: lost connection with the server")
 				} else {
 					log.Printf("Failed to receive message: %s\n", err)
@@ -138,7 +181,7 @@ func receiveAndPrintMessages(c *client.Client, sendStopCh chan<- struct{}, recei
 	}
 }
 
-func readAndSendMessage(c *client.Client, sendStopCh chan<- struct{}, receiveStopCh <-chan struct{}, wg *sync.WaitGroup) {
+func readAndSendMessages(c *client.Client, sendStopCh chan<- struct{}, receiveStopCh <-chan struct{}, wg *sync.WaitGroup) {
 	defer wg.Done()
 
 	for {
@@ -158,7 +201,7 @@ func readAndSendMessage(c *client.Client, sendStopCh chan<- struct{}, receiveSto
 			msg = strings.Trim(msg, "\r\n")
 
 			if err := c.Send(msg); err != nil {
-				if errors.Is(err, client.ErrConnectionClosed) || errors.Is(err, client.ErrConnectionNotExists) || errors.Is(err, client.ErrStreamNotExists) {
+				if errors.Is(err, client.ErrConnectionClosed) || errors.Is(err, client.ErrConnectionNotExist) || errors.Is(err, client.ErrStreamNotExist) {
 					log.Println("Failed to send message: lost connection with the server")
 				} else {
 					log.Printf("Failed to send message: %s\n", err)
