@@ -40,8 +40,9 @@ func main() {
 		fmt.Println("1. Register")
 		fmt.Println("2. Login")
 		fmt.Println("3. Create chat room")
-		fmt.Println("4. Join chat room")
-		fmt.Println("5. Quit")
+		fmt.Println("4. Delete chat room")
+		fmt.Println("5. Join chat room")
+		fmt.Println("6. Quit")
 		fmt.Print("> ")
 
 		choice, err := reader.ReadString('\n')
@@ -116,6 +117,20 @@ func main() {
 			fmt.Print("Enter short code: ")
 			shortCode, err := reader.ReadString('\n')
 			if err != nil {
+				log.Fatalf("Failed to read chat room name: %s\n", err)
+			}
+			shortCode = strings.Trim(shortCode, "\r\n")
+
+			if err := c.DeleteChatRoom(shortCode); err != nil {
+				log.Printf("\nFailed to delete chat room: %s\n", err)
+				continue
+			}
+
+			fmt.Printf("\nChat room deleted.\n")
+		case "5":
+			fmt.Print("Enter short code: ")
+			shortCode, err := reader.ReadString('\n')
+			if err != nil {
 				log.Fatalf("Failed to read chat room short code: %s\n", err)
 			}
 			shortCode = strings.Trim(shortCode, "\r\n")
@@ -146,7 +161,7 @@ func main() {
 
 			close(receiveCh)
 			close(sendCh)
-		case "5":
+		case "6":
 			fmt.Printf("\nGoodbye!\n")
 			return
 		default:
