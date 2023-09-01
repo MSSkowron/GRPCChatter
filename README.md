@@ -97,6 +97,16 @@ To start using GRPCChatter, follow these steps to run the application:
     go run ./cmd/grpcchatter/main.go --config "./configs/my_config.env"
     ```
 
+4. Docker Support
+
+    Alternatively, you can run the application using Docker. In the project directory, use the following command to start GRPCChatter within a Docker container:
+
+    ```
+    docker compose up
+    ```
+
+    The [**default**](./configs/default_config.env) configuration will be used.
+
 ### GRPCChatter REST Server
 
 The REST Server serves is a component of the GRPCChatter application, responsible for managing user authentication and authorization, including user account creation and login. Below, we outline the supported endpoints of the server, along with their respective descriptions:
