@@ -10,12 +10,13 @@ GRPCChatter is a real-time chat application built in Go, harnessing the power of
 
 ## Key Dependencies
 
-- **mux** (<https://pkg.go.dev/github.com/gorilla/mux>): Facilitates API server creation.
-- **pqx** (<https://pkg.go.dev/github.com/lib/pq>) Facilitates interaction with PostgreSQL databases.
-- **jwt** (<https://pkg.go.dev/github.com/golang-jwt/jwt>): Simplifies JWT token management.
-- **viper** (<https://pkg.go.dev/github.com/spf13/viper>): Manages configurations efficiently.
-- **testify** (<https://pkg.go.dev/github.com/stretchr/testify>): Enhances testing capabilities.
-- **crypto** (<https://pkg.go.dev/golang.org/x/crypto>): Utilized for password hashing.
+- **mux** (<https://pkg.go.dev/github.com/gorilla/mux>): Facilitates the creation of API servers and helps manage routing and HTTP request handling.
+- **pqx** (<https://pkg.go.dev/github.com/lib/pq>) Simplifies interaction with PostgreSQL databases, making it easier to work with data storage and retrieval.
+- **jwt** (<https://pkg.go.dev/github.com/golang-jwt/jwt>): Simplifies JWT token management, which is essential for authentication and authorization.
+- **viper** (<https://pkg.go.dev/github.com/spf13/viper>): Efficiently manages configurations, allowing to configure and customize the application easily.
+- **testify** (<https://pkg.go.dev/github.com/stretchr/testify>): Enhances testing capabilities by providing helpful utilities and assertions to streamline the testing processes.
+- **crypto** (<https://pkg.go.dev/golang.org/x/crypto>): Used for secure password hashing, ensuring the protection of user credentials.
+- **uuid** (<https://pkg.go.dev/github.com/google/uuid>): Used to generate universally unique identifiers, which can be valuable for aspects such as data integrity and tracking.
 
 ## Architecture Overview
 
@@ -43,7 +44,7 @@ The database revolves around the **users** table, storing essential user account
 
 ## Features
 
-- **User Authentication and Authorization**: GRPCChatter implements user authentication through usernames and passwords via the REST Server. It generates JWT tokens, ensuring that only authenticated users can access the gRPC Server, maintaining a secure environment.
+- **Authentication and Authorization**: GRPCChatter implements user authentication through usernames and passwords via the REST Server. It generates JWT tokens, ensuring that only authenticated users can access the gRPC Server, maintaining a secure environment.
 
 - **Real-Time Communication**: Ensures instantaneous message delivery, establishing true real-time communication among clients.
 
@@ -53,7 +54,13 @@ The database revolves around the **users** table, storing essential user account
 
 ## Requirements
 
-Make sure you have Go 1.21 or a compatible version installed.
+Before you can get started with this project, please ensure that you have the following prerequisites in place:
+
+- **Go 1.21 or Compatible Version**: You'll need to have Go programming language installed on your system. If you haven't already installed it, you can download it from the official [**Go website**](https://go.dev/dl/).
+
+- **Docker (Optional)**: If you prefer to run the application within a container, make sure you have Docker installed. You can download Docker from the official [**Docker website**](https://www.docker.com/get-started/).
+
+These requirements will allow you to run the application either natively or in a Docker container.
 
 ## Getting Started
 
@@ -82,6 +89,7 @@ To start using GRPCChatter, follow these steps to run the application:
     Optionally, you can use the **--config** flag to specify a configuration file path. The provided configuration file should be in the **.env** format. If you don't provide any configuration, the [**default**](./configs/default_config.env) configuration will be used.
 
     You can configure the following values in your configuration file:
+    - **DATABASE_URL**: Connection string for PostgreSQL database.
     - **REST_SERVER_ADDRESS**: IP address where the REST server will listen.
     - **REST_SERVER_PORT**: Port on which the REST server will listen.
     - **GRPC_SERVER_ADDRESS**: IP address where the gRPC server will listen.
