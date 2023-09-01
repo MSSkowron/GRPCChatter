@@ -150,6 +150,36 @@ func (c *Client) CreateChatRoom(roomName, roomPassword string) (string, error) {
 	return resp.GetShortCode(), nil
 }
 
+// DeleteChatRoom deletes a chat room with the provided short code.
+// The Login() method must be called before the first usage while it requires authorization token.
+func (c *Client) DeleteChatRoom(shortCode string) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if c.authToken == "" {
+		return ErrNotLoggedIn
+	}
+
+	if c.conn == nil {
+		if err := c.connect(); err != nil {
+			return err
+		}
+	}
+
+	md := metadata.New(map[string]string{
+		"token": c.authToken,
+	})
+	ctx := metadata.NewOutgoingContext(context.Background(), md)
+	_, err := c.grpcClient.DeleteChatRoom(ctx, &proto.DeleteChatRoomRequest{
+		ShortCode: shortCode,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to delete chat room: %w", err)
+	}
+
+	return nil
+}
+
 // JoinChatRoom connects the client to a specific chat room.
 // Returns ErrAlreadyJoined if the client is already connected to a chat room. To leave the current chat room, use the Disconnect method.
 // The Login() method must be called before the first usage.
