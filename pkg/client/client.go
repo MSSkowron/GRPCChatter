@@ -17,16 +17,18 @@ import (
 )
 
 var (
-	// ErrConnectionNotExists is returned when attempting an operation on a non-existent server connection.
-	ErrConnectionNotExists = errors.New("connection with the server does not exist")
-	// ErrStreamNotExists is returned when attempting an operation on a non-existent server stream.
-	ErrStreamNotExists = errors.New("stream with the server does not exist")
-	// ErrEmptyToken is returned when client token is empty.
-	ErrEmptyToken = errors.New("token is empty")
-	// ErrAlreadyJoined is returned when a client attempts to join the chat server more than once.
-	ErrAlreadyJoined = errors.New("client is already joined to a chat room")
-	// ErrConnectionClosed is returned when a connection with the server has been closed.
-	ErrConnectionClosed = errors.New("connection with the server has been closed")
+	// ErrConnectionNotExist is returned when attempting an operation on a non-existent server connection.
+	ErrConnectionNotExist = errors.New("server connection does not exist")
+	// ErrStreamNotExist is returned when attempting an operation on a non-existent server stream.
+	ErrStreamNotExist = errors.New("server stream does not exist")
+	// ErrAlreadyJoinedChatRoom is returned when a client attempts to join a chat room when they have already joined one.
+	ErrAlreadyJoinedChatRoom = errors.New("client is already in a chat room")
+	// ErrConnectionClosed is returned when the connection with the server has been closed.
+	ErrConnectionClosed = errors.New("server connection has been closed")
+	// ErrNotJoinedChatRoom is returned when a client has not joined any chat room.
+	ErrNotJoinedChatRoom = errors.New("client has not joined any chat room")
+	// ErrNotLoggedIn is returned when a client is not logged in.
+	ErrNotLoggedIn = errors.New("client is not logged in")
 )
 
 // Client represents a chat client.
@@ -62,6 +64,7 @@ func NewClient(restServerAddress, grpcServerAddres string) *Client {
 	}
 }
 
+// Register registers the user with the server.
 func (c *Client) Register(username, password string) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -84,6 +87,7 @@ func (c *Client) Register(username, password string) error {
 	return nil
 }
 
+// Login logs in the user with the server.
 func (c *Client) Login(username, password string) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -114,14 +118,14 @@ func (c *Client) Login(username, password string) error {
 }
 
 // CreateChatRoom creates a new chat room with the provided name and password.
-// If the client is not already connected to a chat room, it establishes a connection and then sends a request to create the chat room.
 // Upon successful creation, it returns the shortcode of the newly created chat room.
+// The Login() method must be called before the first usage while it requires authorization token.
 func (c *Client) CreateChatRoom(roomName, roomPassword string) (string, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
 	if c.authToken == "" {
-		return "", errors.New("not logged in")
+		return "", ErrNotLoggedIn
 	}
 
 	if c.conn == nil {
@@ -145,21 +149,19 @@ func (c *Client) CreateChatRoom(roomName, roomPassword string) (string, error) {
 	return resp.GetShortCode(), nil
 }
 
-// JoinChatRoom connects the client to a specific chat room, enabling message reception and transmission.
-// It first checks if the client is already connected to a chat room and returns ErrAlreadyJoined if so.
-// If the client is not connected, it establishes a connection, joins the chat room, and sets up a bidirectional stream for communication.
-// It then initializes channels for sending and receiving messages.
+// JoinChatRoom connects the client to a specific chat room.
 // Returns ErrAlreadyJoined if the client is already connected to a chat room. To leave the current chat room, use the Disconnect method.
+// The Login() method must be called before the first usage.
 func (c *Client) JoinChatRoom(shortCode string, password string) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
 	if c.stream != nil {
-		return ErrAlreadyJoined
+		return ErrAlreadyJoinedChatRoom
 	}
 
 	if c.authToken == "" {
-		return errors.New("not logged in")
+		return ErrNotLoggedIn
 	}
 
 	if c.conn == nil {
@@ -209,19 +211,19 @@ func (c *Client) JoinChatRoom(shortCode string, password string) error {
 // The JoinChatRoom() method must be called before the first usage.
 func (c *Client) ListChatRoomUsers() ([]string, error) {
 	c.mu.RLock()
-	if c.conn == nil {
+	if c.chatToken == "" {
 		c.mu.RUnlock()
-		return nil, ErrConnectionNotExists
+		return nil, ErrNotJoinedChatRoom
 	}
 
 	if c.stream == nil {
 		c.mu.RUnlock()
-		return nil, ErrStreamNotExists
+		return nil, ErrStreamNotExist
 	}
 
-	if c.chatToken == "" {
+	if c.conn == nil {
 		c.mu.RUnlock()
-		return nil, ErrEmptyToken
+		return nil, ErrConnectionNotExist
 	}
 	c.mu.RUnlock()
 
@@ -243,18 +245,23 @@ func (c *Client) ListChatRoomUsers() ([]string, error) {
 }
 
 // Send sends a message to the server.
-// It blocks until the message is sent or returns immediately when the stream is closed, and the message is discarded.
+// It blocks until the message is sent or returns immediately when an error occured.
 // The JoinChatRoom() method must be called before the first usage.
 func (c *Client) Send(message string) error {
 	c.mu.RLock()
-	if c.conn == nil {
+	if c.chatToken == "" {
 		c.mu.RUnlock()
-		return ErrConnectionNotExists
+		return ErrNotJoinedChatRoom
 	}
 
 	if c.stream == nil {
 		c.mu.RUnlock()
-		return ErrStreamNotExists
+		return ErrStreamNotExist
+	}
+
+	if c.conn == nil {
+		c.mu.RUnlock()
+		return ErrConnectionNotExist
 	}
 	c.mu.RUnlock()
 
@@ -268,19 +275,23 @@ func (c *Client) Send(message string) error {
 }
 
 // Receive receives a message from the server.
-// It blocks until a message arrives or returns immediately when the stream is closed, returning an empty message.
-// The Join() method must be called before the first usage.
-// Returns ErrConnectionClosed if the client is not connected or ErrStreamNotExists if the stream is not established.
+// It blocks until a message arrives or returns immediately when an error occured.
+// The JoinChatRoom() method must be called before the first usage.
 func (c *Client) Receive() (Message, error) {
 	c.mu.RLock()
-	if c.conn == nil {
+	if c.chatToken == "" {
 		c.mu.RUnlock()
-		return Message{}, ErrConnectionNotExists
+		return Message{}, ErrNotJoinedChatRoom
 	}
 
 	if c.stream == nil {
 		c.mu.RUnlock()
-		return Message{}, ErrStreamNotExists
+		return Message{}, ErrStreamNotExist
+	}
+
+	if c.conn == nil {
+		c.mu.RUnlock()
+		return Message{}, ErrConnectionNotExist
 	}
 	c.mu.RUnlock()
 
@@ -346,12 +357,19 @@ func (c *Client) connect() error {
 	return nil
 }
 
+// Disconnect disconnects the client from the server, closing the connection with the server.
+func (c *Client) Disconnect() {
+	c.close()
+	c.wg.Wait()
+}
+
 // It should be called without the c.mu read-write mutex locked.
 func (c *Client) close() {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	if c.conn == nil || c.stream == nil {
+	if c.conn == nil {
+		c.clear()
 		return
 	}
 
@@ -363,13 +381,11 @@ func (c *Client) close() {
 
 	c.conn.Close()
 
-	c.conn, c.grpcClient, c.stream, c.authToken, c.chatToken = nil, nil, nil, "", ""
+	c.clear()
 }
 
-// Disconnect gracefully disconnects the client from the server, closing the connection with the server.
-func (c *Client) Disconnect() {
-	c.close()
-	c.wg.Wait()
+func (c *Client) clear() {
+	c.conn, c.grpcClient, c.stream, c.authToken, c.chatToken = nil, nil, nil, "", ""
 }
 
 func (c *Client) postJSON(url string, data any) (*http.Response, error) {
