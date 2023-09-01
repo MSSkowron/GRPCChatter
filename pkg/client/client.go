@@ -1,11 +1,15 @@
 package client
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
 	"sync"
 
+	"github.com/MSSkowron/GRPCChatter/internal/dto"
 	"github.com/MSSkowron/GRPCChatter/proto/gen/proto"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -27,14 +31,15 @@ var (
 
 // Client represents a chat client.
 type Client struct {
-	name          string
-	serverAddress string
+	restServerAddress string
+	grpcServerAddress string
 
 	mu         sync.RWMutex
 	conn       *grpc.ClientConn
 	grpcClient proto.GRPCChatterClient
 	stream     proto.GRPCChatter_ChatClient
-	token      string
+	chatToken  string
+	authToken  string
 
 	receiveQueue chan Message
 	sendQueue    chan string
@@ -50,11 +55,62 @@ type Message struct {
 }
 
 // NewClient creates a new chat client with the given name and server address.
-func NewClient(name string, serverAddress string) *Client {
+func NewClient(restServerAddress, grpcServerAddres string) *Client {
 	return &Client{
-		name:          name,
-		serverAddress: serverAddress,
+		restServerAddress: restServerAddress,
+		grpcServerAddress: grpcServerAddres,
 	}
+}
+
+func (c *Client) Register(username, password string) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	data := dto.UserRegisterDTO{
+		Username: username,
+		Password: password,
+	}
+
+	resp, err := c.postJSON(fmt.Sprintf("%s/register", c.restServerAddress), data)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return c.handleErrorResponse(resp)
+	}
+
+	return nil
+}
+
+func (c *Client) Login(username, password string) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	data := dto.UserLoginDTO{
+		Username: username,
+		Password: password,
+	}
+
+	resp, err := c.postJSON(fmt.Sprintf("%s/login", c.restServerAddress), data)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return c.handleErrorResponse(resp)
+	}
+
+	respBody := dto.TokenDTO{}
+	if err := json.NewDecoder(resp.Body).Decode(&respBody); err != nil {
+		return fmt.Errorf("failed to read response body: %w", err)
+	}
+
+	c.authToken = respBody.Token
+
+	return nil
 }
 
 // CreateChatRoom creates a new chat room with the provided name and password.
@@ -64,13 +120,21 @@ func (c *Client) CreateChatRoom(roomName, roomPassword string) (string, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
+	if c.authToken == "" {
+		return "", errors.New("not logged in")
+	}
+
 	if c.conn == nil {
 		if err := c.connect(); err != nil {
 			return "", err
 		}
 	}
 
-	resp, err := c.grpcClient.CreateChatRoom(context.Background(), &proto.CreateChatRoomRequest{
+	md := metadata.New(map[string]string{
+		"token": c.authToken,
+	})
+	ctx := metadata.NewOutgoingContext(context.Background(), md)
+	resp, err := c.grpcClient.CreateChatRoom(ctx, &proto.CreateChatRoomRequest{
 		RoomName:     roomName,
 		RoomPassword: roomPassword,
 	})
@@ -94,13 +158,21 @@ func (c *Client) JoinChatRoom(shortCode string, password string) error {
 		return ErrAlreadyJoined
 	}
 
+	if c.authToken == "" {
+		return errors.New("not logged in")
+	}
+
 	if c.conn == nil {
 		if err := c.connect(); err != nil {
 			return err
 		}
 	}
 
-	resp, err := c.grpcClient.JoinChatRoom(context.Background(), &proto.JoinChatRoomRequest{
+	md := metadata.New(map[string]string{
+		"token": c.authToken,
+	})
+	ctx := metadata.NewOutgoingContext(context.Background(), md)
+	resp, err := c.grpcClient.JoinChatRoom(ctx, &proto.JoinChatRoomRequest{
 		ShortCode:    shortCode,
 		RoomPassword: password,
 	})
@@ -108,16 +180,16 @@ func (c *Client) JoinChatRoom(shortCode string, password string) error {
 		return fmt.Errorf("failed to join the chat room: %w", err)
 	}
 
-	c.token = resp.GetToken()
+	c.chatToken = resp.GetToken()
 
-	md := metadata.New(map[string]string{
-		"token": c.token,
+	md = metadata.New(map[string]string{
+		"token": c.chatToken,
 	})
-	ctx := metadata.NewOutgoingContext(context.Background(), md)
+	ctx = metadata.NewOutgoingContext(context.Background(), md)
 	stream, err := c.grpcClient.Chat(ctx)
 	if err != nil {
 		c.conn.Close()
-		return fmt.Errorf("failed to create a stream with server at %s: %w", c.serverAddress, err)
+		return fmt.Errorf("failed to establish a chat stream: %w", err)
 	}
 	c.stream = stream
 
@@ -147,14 +219,14 @@ func (c *Client) ListChatRoomUsers() ([]string, error) {
 		return nil, ErrStreamNotExists
 	}
 
-	if c.token == "" {
+	if c.chatToken == "" {
 		c.mu.RUnlock()
 		return nil, ErrEmptyToken
 	}
 	c.mu.RUnlock()
 
 	md := metadata.New(map[string]string{
-		"token": c.token,
+		"token": c.chatToken,
 	})
 	ctx := metadata.NewOutgoingContext(context.Background(), md)
 	resp, err := c.grpcClient.ListChatRoomUsers(ctx, &proto.ListChatRoomUsersRequest{})
@@ -263,9 +335,9 @@ func (c *Client) receive() {
 
 // It should be called with the c.mu read-write mutex locked.
 func (c *Client) connect() error {
-	conn, err := grpc.Dial(c.serverAddress, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.Dial(c.grpcServerAddress, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
-		return fmt.Errorf("failed to connect to server at %s: %w", c.serverAddress, err)
+		return fmt.Errorf("failed to connect to server at %s: %w", c.grpcServerAddress, err)
 	}
 
 	c.conn = conn
@@ -291,14 +363,34 @@ func (c *Client) close() {
 
 	c.conn.Close()
 
-	c.conn = nil
-	c.grpcClient = nil
-	c.stream = nil
-	c.token = ""
+	c.conn, c.grpcClient, c.stream, c.authToken, c.chatToken = nil, nil, nil, "", ""
 }
 
 // Disconnect gracefully disconnects the client from the server, closing the connection with the server.
 func (c *Client) Disconnect() {
 	c.close()
 	c.wg.Wait()
+}
+
+func (c *Client) postJSON(url string, data any) (*http.Response, error) {
+	body, err := json.Marshal(data)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal data: %w", err)
+	}
+
+	resp, err := http.Post(url, "application/json", bytes.NewReader(body))
+	if err != nil {
+		return nil, fmt.Errorf("failed to send request: %w", err)
+	}
+
+	return resp, nil
+}
+
+func (c *Client) handleErrorResponse(resp *http.Response) error {
+	respErr := dto.ErrorDTO{}
+	if err := json.NewDecoder(resp.Body).Decode(&respErr); err != nil {
+		return fmt.Errorf("failed to read response body: %w", err)
+	}
+
+	return fmt.Errorf("status: %s error: %s", resp.Status, respErr.Error)
 }
