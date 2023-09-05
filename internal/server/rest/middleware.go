@@ -14,21 +14,21 @@ import (
 
 func (s *Server) logMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		id := uuid.New().String()
+		requestID := uuid.New().String()
 
 		clientIP := getClientIP(r)
 		endpoint := r.URL.Path
-		method := r.Method
+		httpMethod := r.Method
 
-		body, err := getRequestBody(r)
+		requestBody, err := getRequestBody(r)
 		if err != nil {
 			s.respondWithError(w, http.StatusInternalServerError, ErrMsgInternalServerError)
 			return
 		}
 
-		logger.Info(fmt.Sprintf("Received request [ID: %s] from [%s] to [%s] with method [%s] and body [%s]", id, clientIP, endpoint, method, string(body)))
+		logger.Info(fmt.Sprintf("Received request [ID: %s] from [%s] to [%s] with method [%s] and body [%s]", requestID, clientIP, endpoint, httpMethod, string(requestBody)))
 
-		r = r.WithContext(context.WithValue(r.Context(), contextKeyReqID, id))
+		r = r.WithContext(context.WithValue(r.Context(), contextKeyReqID, requestID))
 
 		next.ServeHTTP(w, r)
 	})
@@ -40,18 +40,18 @@ func getClientIP(r *http.Request) string {
 		ip = r.RemoteAddr
 	}
 
-	idx := strings.Index(ip, ":")
-	if idx != -1 {
-		ip = ip[:idx]
+	colonIndex := strings.Index(ip, ":")
+	if colonIndex != -1 {
+		ip = ip[:colonIndex]
 	}
 	return ip
 }
 
 func getRequestBody(r *http.Request) ([]byte, error) {
-	body, err := io.ReadAll(r.Body)
+	requestBody, err := io.ReadAll(r.Body)
 	if err != nil {
 		return nil, err
 	}
-	r.Body = io.NopCloser(bytes.NewBuffer(body))
-	return body, nil
+	r.Body = io.NopCloser(bytes.NewBuffer(requestBody))
+	return requestBody, nil
 }
