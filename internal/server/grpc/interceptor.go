@@ -15,6 +15,13 @@ import (
 	"google.golang.org/grpc/status"
 )
 
+const (
+	errMsgMissingHeaders       = "Missing gRPC headers: [%s]. Please include your authentication token in the [%s] gRPC header."
+	errMsgTokenMissing         = "Authentication token missing in gRPC headers. Please include your token in the [%s] gRPC header."
+	errMsgInvalidToken         = "Invalid authentication token. Please provide a valid token."
+	errMsgNoPermissionToAccess = "No permission to access chat room with short code [%s]."
+)
+
 func (s *Server) unaryLogInterceptor(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (any, error) {
 	id := uuid.New().String()
 
@@ -99,55 +106,55 @@ func (s *Server) streamAuthorizationInterceptor(srv any, ss grpc.ServerStream, i
 func (s *Server) authorizeChatToken(ctx context.Context) (string, string, error) {
 	md, ok := metadata.FromIncomingContext(ctx)
 	if !ok {
-		return "", "", status.Errorf(codes.Unauthenticated, "Missing gRPC headers: %s. Please include your authentication token in the '%s' gRPC header.", grpcHeaderTokenKey, grpcHeaderTokenKey)
+		return "", "", status.Errorf(codes.Unauthenticated, errMsgMissingHeaders, grpcHeaderTokenKey, grpcHeaderTokenKey)
 	}
 
 	tokens := md.Get(grpcHeaderTokenKey)
 	if len(tokens) == 0 {
-		return "", "", status.Errorf(codes.Unauthenticated, "Authentication token missing in gRPC headers. Please include your token in the '%s' gRPC header.", grpcHeaderTokenKey)
+		return "", "", status.Errorf(codes.Unauthenticated, errMsgTokenMissing, grpcHeaderTokenKey)
 	}
 	userToken := tokens[0]
 
 	if err := s.chatTokenService.ValidateToken(userToken); err != nil {
 		if errors.Is(err, service.ErrInvalidChatToken) {
-			return "", "", status.Error(codes.Unauthenticated, "Invalid authentication token. Please provide a valid token.")
+			return "", "", status.Error(codes.Unauthenticated, errMsgInvalidToken)
 		}
 
-		return "", "", status.Error(codes.Internal, "Internal server error while validating token.")
+		return "", "", status.Errorf(codes.Internal, errMsgInternalServer, "validating token")
 	}
 
 	shortCode, err := s.chatTokenService.GetShortCodeFromToken(userToken)
 	if err != nil {
 		if errors.Is(err, service.ErrInvalidChatToken) {
-			return "", "", status.Error(codes.Unauthenticated, "Invalid authentication token. Please provide a valid token.")
+			return "", "", status.Error(codes.Unauthenticated, errMsgInvalidToken)
 		}
 
-		return "", "", status.Error(codes.Internal, "Internal server error while retrieving short code from token.")
+		return "", "", status.Errorf(codes.Internal, errMsgInternalServer, "retrieving short code from token")
 	}
 
 	userName, err := s.chatTokenService.GetUserNameFromToken(userToken)
 	if err != nil {
 		if errors.Is(err, service.ErrInvalidChatToken) {
-			return "", "", status.Error(codes.Unauthenticated, "Invalid authentication token. Please provide a valid token.")
+			return "", "", status.Error(codes.Unauthenticated, errMsgInvalidToken)
 		}
 
-		return "", "", status.Error(codes.Internal, "Internal server error while retrieving user name from token.")
+		return "", "", status.Errorf(codes.Internal, errMsgInternalServer, "retrieving user name from token")
 	}
 
 	if !s.roomService.RoomExists(shortCode) {
-		return "", "", status.Errorf(codes.NotFound, "Chat room with short code [%s] not found. Please check the provided short code.", shortCode)
+		return "", "", status.Errorf(codes.NotFound, errMsgChatRoomNotFound, shortCode)
 	}
 
 	is, err := s.roomService.IsUserInRoom(shortCode, userName)
 	if !is {
-		return "", "", status.Error(codes.PermissionDenied, "No permission to access this room. You do not have permission to participate in this chat room.")
+		return "", "", status.Errorf(codes.PermissionDenied, errMsgNoPermissionToAccess, shortCode)
 	}
 	if err != nil {
 		if errors.Is(err, service.ErrRoomDoesNotExist) {
-			return "", "", status.Errorf(codes.NotFound, "Chat room with short code [%s] not found. Please check the provided short code.", shortCode)
+			return "", "", status.Errorf(codes.NotFound, errMsgChatRoomNotFound, shortCode)
 		}
 
-		return "", "", status.Error(codes.Internal, "Internal server error while adding user to chat room.")
+		return "", "", status.Errorf(codes.Internal, errMsgInternalServer, "checking user presence in chat room")
 	}
 
 	return shortCode, userName, nil
@@ -156,39 +163,39 @@ func (s *Server) authorizeChatToken(ctx context.Context) (string, string, error)
 func (s *Server) authorizeUserToken(ctx context.Context) (int, string, error) {
 	md, ok := metadata.FromIncomingContext(ctx)
 	if !ok {
-		return 0, "", status.Errorf(codes.Unauthenticated, "Missing gRPC headers: %s. Please include your authentication token in the '%s' gRPC header.", grpcHeaderTokenKey, grpcHeaderTokenKey)
+		return 0, "", status.Errorf(codes.Unauthenticated, errMsgMissingHeaders, grpcHeaderTokenKey, grpcHeaderTokenKey)
 	}
 
 	tokens := md.Get(grpcHeaderTokenKey)
 	if len(tokens) == 0 {
-		return 0, "", status.Errorf(codes.Unauthenticated, "Authentication token missing in gRPC headers. Please include your token in the '%s' gRPC header.", grpcHeaderTokenKey)
+		return 0, "", status.Errorf(codes.Unauthenticated, errMsgTokenMissing, grpcHeaderTokenKey)
 	}
 	userToken := tokens[0]
 
 	if err := s.userTokenService.ValidateToken(userToken); err != nil {
 		if errors.Is(err, service.ErrInvalidUserToken) {
-			return 0, "", status.Error(codes.Unauthenticated, "Invalid authentication token. Please provide a valid token.")
+			return 0, "", status.Error(codes.Unauthenticated, errMsgInvalidToken)
 		}
 
-		return 0, "", status.Error(codes.Internal, "Internal server error while validating token.")
+		return 0, "", status.Errorf(codes.Internal, errMsgInternalServer, "validating token")
 	}
 
 	userID, err := s.userTokenService.GetUserIDFromToken(userToken)
 	if err != nil {
 		if errors.Is(err, service.ErrInvalidUserToken) {
-			return 0, "", status.Error(codes.Unauthenticated, "Invalid authentication token. Please provide a valid token.")
+			return 0, "", status.Error(codes.Unauthenticated, errMsgInvalidToken)
 		}
 
-		return 0, "", status.Error(codes.Internal, "Internal server error while retrieving short code from token.")
+		return 0, "", status.Errorf(codes.Internal, errMsgInternalServer, "retrieving user ID from token")
 	}
 
 	userName, err := s.userTokenService.GetUserNameFromToken(userToken)
 	if err != nil {
 		if errors.Is(err, service.ErrInvalidChatToken) {
-			return 0, "", status.Error(codes.Unauthenticated, "Invalid authentication token. Please provide a valid token.")
+			return 0, "", status.Error(codes.Unauthenticated, errMsgInvalidToken)
 		}
 
-		return 0, "", status.Error(codes.Internal, "Internal server error while retrieving user name from token.")
+		return 0, "", status.Errorf(codes.Internal, errMsgInternalServer, "retrieving user name from token")
 	}
 
 	return userID, userName, nil

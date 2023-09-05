@@ -30,6 +30,12 @@ const (
 	contextKeyShortCode = contextKey("shortCode")
 	contextKeyUserID    = contextKey("userID")
 	contextKeyUserName  = contextKey("userName")
+
+	errMsgInternalServer          = "Internal server error while %s."
+	errMsgChatRoomNotFound        = "Chat room with short code [%s] not found. Please check the provided short code."
+	errMsgNoPermissionToModify    = "No permission to modify chat room with short code [%s]."
+	errMsgInvalidChatRoomPassword = "Invalid chat room with short code [%s] password. Please make sure you have the correct password."
+	errMsgJoinRoomUserExists      = "User with username [%s] already exists in the chat room with short code [%s]."
 )
 
 // Server represents a gRPC server.
@@ -129,7 +135,7 @@ func (s *Server) CreateChatRoom(ctx context.Context, req *proto.CreateChatRoomRe
 	roomShortCode := s.shortCodeService.GenerateShortCode(roomName)
 
 	if err := s.roomService.CreateRoom(roomShortCode, roomName, roomPassword, userName); err != nil {
-		return nil, status.Error(codes.Internal, "Internal server error while adding user to chat room.")
+		return nil, status.Errorf(codes.Internal, errMsgInternalServer, "creating chat room")
 	}
 
 	logger.Info(fmt.Sprintf("[ID: %s]: User [%s] created room [%s] with short code [%s]", rpcID, userName, roomName, roomShortCode))
@@ -147,12 +153,12 @@ func (s *Server) DeleteChatRoom(ctx context.Context, req *proto.DeleteChatRoomRe
 
 	if err := s.roomService.DeleteRoom(roomShortCode, userName); err != nil {
 		if errors.Is(err, service.ErrRoomDoesNotExist) {
-			return nil, status.Errorf(codes.NotFound, "Chat room with short code [%s] not found. Please check the provided short code.", roomShortCode)
+			return nil, status.Errorf(codes.NotFound, errMsgChatRoomNotFound, roomShortCode)
 		}
 		if errors.Is(err, service.ErrNotOwner) {
-			return nil, status.Errorf(codes.PermissionDenied, "You are not the owner of the chat room with short code [%s].", roomShortCode)
+			return nil, status.Errorf(codes.PermissionDenied, errMsgNoPermissionToModify, roomShortCode)
 		}
-		return nil, status.Error(codes.Internal, "Internal server error while adding user to chat room.")
+		return nil, status.Errorf(codes.Internal, errMsgInternalServer, "deleting chat room")
 	}
 
 	logger.Info(fmt.Sprintf("[ID: %s]: User [%s] deleted room with short code [%s]", rpcID, userName, roomShortCode))
@@ -168,36 +174,36 @@ func (s *Server) JoinChatRoom(ctx context.Context, req *proto.JoinChatRoomReques
 	roomPassword := req.GetRoomPassword()
 
 	if !s.roomService.RoomExists(roomShortCode) {
-		return nil, status.Errorf(codes.NotFound, "Chat room with short code [%s] not found. Please check the provided short code.", roomShortCode)
+		return nil, status.Errorf(codes.NotFound, errMsgChatRoomNotFound, roomShortCode)
 	}
 
 	if err := s.roomService.CheckPassword(roomShortCode, roomPassword); err != nil {
 		if errors.Is(err, service.ErrRoomDoesNotExist) {
-			return nil, status.Errorf(codes.NotFound, "Chat room with short code [%s] not found. Please check the provided short code.", roomShortCode)
+			return nil, status.Errorf(codes.NotFound, errMsgChatRoomNotFound, roomShortCode)
 		}
 		if errors.Is(err, service.ErrInvalidRoomPassword) {
-			return nil, status.Errorf(codes.PermissionDenied, "Invalid room password for chat room with short code [%s]. Please make sure you have the correct password.", roomShortCode)
+			return nil, status.Errorf(codes.PermissionDenied, errMsgInvalidChatRoomPassword, roomShortCode)
 		}
 
-		return nil, status.Error(codes.Internal, "Internal server error while adding user to chat room.")
+		return nil, status.Errorf(codes.Internal, errMsgInternalServer, "while checking user's password")
 	}
 
 	if err := s.roomService.AddUserToRoom(roomShortCode, userName); err != nil {
 		if errors.Is(err, service.ErrRoomDoesNotExist) {
-			return nil, status.Errorf(codes.NotFound, "Chat room with short code [%s] not found. Please check the provided short code.", roomShortCode)
+			return nil, status.Errorf(codes.NotFound, errMsgChatRoomNotFound, roomShortCode)
 		}
 		if errors.Is(err, service.ErrUserAlreadyExists) {
-			return nil, status.Errorf(codes.AlreadyExists, "User with username [%s] already exists in the chat room with short code [%s].", userName, roomPassword)
+			return nil, status.Errorf(codes.AlreadyExists, errMsgJoinRoomUserExists, userName, roomShortCode)
 		}
 
-		return nil, status.Error(codes.Internal, "Internal server error while adding user to chat room.")
+		return nil, status.Errorf(codes.Internal, errMsgInternalServer, "adding user to chat room")
 	}
 
 	logger.Info(fmt.Sprintf("[ID: %s]: Added user [%s] to chat room user's list with short code [%s]", rpcID, userName, roomShortCode))
 
 	token, err := s.chatTokenService.GenerateToken(userName, roomShortCode)
 	if err != nil {
-		return nil, status.Error(codes.Internal, "Internal server error while generating token.")
+		return nil, status.Errorf(codes.Internal, errMsgInternalServer, "generating token")
 	}
 
 	logger.Info(fmt.Sprintf("[ID: %s]: Generated token [%s] for user [%s] to chat room with short code [%s]", rpcID, token, userName, roomShortCode))
@@ -214,10 +220,10 @@ func (s *Server) ListChatRoomUsers(ctx context.Context, req *emptypb.Empty) (*pr
 	users, err := s.roomService.GetRoomUsers(shortCode)
 	if err != nil {
 		if errors.Is(err, service.ErrRoomDoesNotExist) {
-			return nil, status.Errorf(codes.NotFound, "Chat room with short code [%s] not found. Please check the provided short code.", shortCode)
+			return nil, status.Errorf(codes.NotFound, errMsgChatRoomNotFound, shortCode)
 		}
 
-		return nil, status.Error(codes.Internal, "Internal server error while adding user to chat room.")
+		return nil, status.Errorf(codes.Internal, errMsgInternalServer, "retrieving users from chat room")
 	}
 
 	var resUsers []*proto.User
