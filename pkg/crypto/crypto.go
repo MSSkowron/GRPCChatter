@@ -6,14 +6,14 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-var (
-	// ErrInvalidCredentials is returned when the credentials provided are invalid.
-	ErrInvalidCredentials = errors.New("invalid credentials")
-)
-
 const (
 	// Cost is the cost used to hash passwords.
 	Cost = 10
+)
+
+var (
+	// ErrInvalidCredentials is returned when the credentials provided are invalid.
+	ErrInvalidCredentials = errors.New("invalid credentials")
 )
 
 // HashPassword hashes a password with bcrypt and the default cost of 10.
