@@ -155,8 +155,7 @@ func (s *Server) respondWithJSON(w http.ResponseWriter, code int, payload any) {
 		logger.Error(fmt.Sprintf("Failed to marshall response to JSON: %s ", err))
 
 		w.WriteHeader(http.StatusInternalServerError)
-		_, err = w.Write([]byte(ErrMsgInternalServerError))
-		if err != nil {
+		if _, err := w.Write([]byte(ErrMsgInternalServerError)); err != nil {
 			logger.Error(fmt.Sprintf("Failed to respond: %s", err))
 		}
 
@@ -164,8 +163,7 @@ func (s *Server) respondWithJSON(w http.ResponseWriter, code int, payload any) {
 	}
 
 	w.WriteHeader(code)
-	_, err = w.Write(response)
-	if err != nil {
+	if _, err := w.Write(response); err != nil {
 		logger.Error(fmt.Sprintf("Failed to respond: %s", err))
 	}
 }
