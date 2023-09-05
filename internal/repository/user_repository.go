@@ -137,8 +137,7 @@ func (ur *UserRepositoryImpl) GetAllUsers(ctx context.Context) ([]*model.User, e
 func (ur *UserRepositoryImpl) UpdateUser(ctx context.Context, user *model.User) error {
 	query := "UPDATE users SET username = $1, password = $2 WHERE id = $3"
 
-	_, err := ur.db.ExecContext(ctx, query, user.Username, user.Password, user.ID)
-	if err != nil {
+	if _, err := ur.db.ExecContext(ctx, query, user.Username, user.Password, user.ID); err != nil {
 		return fmt.Errorf("failed to update user: %w", err)
 	}
 
