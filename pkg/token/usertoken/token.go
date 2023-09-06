@@ -9,8 +9,11 @@ import (
 )
 
 const (
-	ClaimUserIDKey    = "id"
-	ClaimUserNameKey  = "userName"
+	// ClaimUserIDKey is the key for user ID claim.
+	ClaimUserIDKey = "id"
+	// ClaimUserNameKey is the key for user name claim.
+	ClaimUserNameKey = "userName"
+	// ClaimExpiresAtKey is the key for expiration time claim.
 	ClaimExpiresAtKey = "expiresAt"
 )
 
@@ -67,6 +70,7 @@ func Validate(tokenString, secret string) error {
 	return nil
 }
 
+// Claim is a generic type for JWT claims.
 type Claim interface {
 	string | float64
 }

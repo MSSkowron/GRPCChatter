@@ -18,6 +18,7 @@ const (
 	defaultConfigFilePath = "./configs/default_config.env"
 )
 
+// Run runs the GRPCChatter application.
 func Run() error {
 	configFilePath := flag.String("config", defaultConfigFilePath, "GRPCChatter configuration file path")
 	flag.Parse()

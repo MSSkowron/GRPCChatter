@@ -8,7 +8,9 @@ import (
 )
 
 const (
-	ClaimUserNameKey  = "userName"
+	// ClaimUserNameKey is the key for user name claim.
+	ClaimUserNameKey = "userName"
+	// ClaimShortCodeKey is the key for short code claim.
 	ClaimShortCodeKey = "shortCode"
 )
 
