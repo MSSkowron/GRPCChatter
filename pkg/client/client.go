@@ -75,7 +75,7 @@ func (c *Client) Register(username, password string) error {
 		Password: password,
 	}
 
-	resp, err := c.postJSON(fmt.Sprintf("%s/register", c.restServerAddress), data)
+	resp, err := c.postJSON(fmt.Sprintf("http://%s/register", c.restServerAddress), data)
 	if err != nil {
 		return err
 	}
@@ -98,7 +98,7 @@ func (c *Client) Login(username, password string) error {
 		Password: password,
 	}
 
-	resp, err := c.postJSON(fmt.Sprintf("%s/login", c.restServerAddress), data)
+	resp, err := c.postJSON(fmt.Sprintf("http://%s/login", c.restServerAddress), data)
 	if err != nil {
 		return err
 	}
