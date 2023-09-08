@@ -1,14 +1,21 @@
-FROM golang:1.21-alpine 
+FROM golang:1.21-alpine as builder
 
-USER root 
+WORKDIR /app
 
-WORKDIR /app 
+COPY go.mod .
+COPY go.sum .
 
-COPY go.mod ./
-COPY go.sum ./
+RUN go mod download
 
-COPY . ./ 
+COPY . .
 
-RUN go build -o /bin/grpcchatter cmd/grpcchatter/main.go
+RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o /bin/grpcchatter cmd/grpcchatter/main.go
+
+FROM alpine:latest
+
+WORKDIR /app
+
+COPY --from=builder /app/configs/default_config.env /app/configs/default_config.env
+COPY --from=builder /bin/grpcchatter /bin/grpcchatter
 
 CMD ["/bin/grpcchatter"]
