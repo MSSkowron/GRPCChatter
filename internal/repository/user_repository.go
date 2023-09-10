@@ -45,7 +45,7 @@ func NewUserRepository(db database.Database) *UserRepositoryImpl {
 func (ur *UserRepositoryImpl) AddUser(ctx context.Context, user *model.User) (int, error) {
 	query := "INSERT INTO users (created_at, username, password) VALUES ($1, $2, $3) RETURNING id"
 
-	row, err := ur.db.QueryRowContext(ctx, query, user.Username, user.Password)
+	row, err := ur.db.QueryRowContext(ctx, query, user.CreatedAt, user.Username, user.Password)
 	if err != nil {
 		return 0, fmt.Errorf("failed to add user: %w", err)
 	}

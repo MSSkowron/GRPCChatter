@@ -26,7 +26,11 @@ func (s *Server) logMiddleware(next http.Handler) http.Handler {
 			return
 		}
 
-		logger.Info(fmt.Sprintf("Received request [ID: %s] from [%s] to [%s] with method [%s] and body [%s]", requestID, clientIP, endpoint, httpMethod, string(requestBody)))
+		logMessage := fmt.Sprintf(
+			"Received request [ID: %s] from [ClientIP: %s] to [Endpoint: %s] with [HTTP Method: %s] and [Request Body: %s]",
+			requestID, clientIP, endpoint, httpMethod, string(requestBody),
+		)
+		logger.Info(logMessage)
 
 		r = r.WithContext(context.WithValue(r.Context(), contextKeyReqID, requestID))
 
