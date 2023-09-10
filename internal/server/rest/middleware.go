@@ -3,6 +3,7 @@ package rest
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -28,7 +29,7 @@ func (s *Server) logMiddleware(next http.Handler) http.Handler {
 
 		logMessage := fmt.Sprintf(
 			"Received request [ID: %s] from [ClientIP: %s] to [Endpoint: %s] with [HTTP Method: %s] and [Request Body: %s]",
-			requestID, clientIP, endpoint, httpMethod, string(requestBody),
+			requestID, clientIP, endpoint, httpMethod, requestBody,
 		)
 		logger.Info(logMessage)
 
@@ -51,11 +52,23 @@ func getClientIP(r *http.Request) string {
 	return ip
 }
 
-func getRequestBody(r *http.Request) ([]byte, error) {
-	requestBody, err := io.ReadAll(r.Body)
+func getRequestBody(r *http.Request) (string, error) {
+	requestBodyBytes, err := io.ReadAll(r.Body)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
-	r.Body = io.NopCloser(bytes.NewBuffer(requestBody))
-	return requestBody, nil
+
+	r.Body = io.NopCloser(bytes.NewBuffer(requestBodyBytes))
+
+	var requestBody any
+	if err := json.Unmarshal(requestBodyBytes, &requestBody); err != nil {
+		return "", err
+	}
+
+	requestBodyJSON, err := json.MarshalIndent(requestBody, "", "  ")
+	if err != nil {
+		return "", err
+	}
+
+	return string(requestBodyJSON), nil
 }
