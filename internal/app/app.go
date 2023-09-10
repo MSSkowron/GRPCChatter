@@ -11,6 +11,7 @@ import (
 	"github.com/MSSkowron/GRPCChatter/internal/server/grpc"
 	"github.com/MSSkowron/GRPCChatter/internal/server/rest"
 	"github.com/MSSkowron/GRPCChatter/internal/service"
+	"github.com/MSSkowron/GRPCChatter/pkg/logger"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -59,6 +60,8 @@ func Run() error {
 	g := errgroup.Group{}
 
 	g.Go(func() error {
+		logger.Info(fmt.Sprintf("REST Server listening on %s:%d", config.RESTServerAddress, config.RESTServerPort))
+
 		if err := restServer.ListenAndServe(); err != nil {
 			return fmt.Errorf("failed to run REST server: %w", err)
 		}
@@ -66,6 +69,8 @@ func Run() error {
 	})
 
 	g.Go(func() error {
+		logger.Info(fmt.Sprintf("GRPC Server listening on %s:%d", config.GRPCServerAddress, config.GRPCServerPort))
+
 		if err := grpcServer.ListenAndServe(); err != nil {
 			return fmt.Errorf("failed to run gRPC server: %w", err)
 		}

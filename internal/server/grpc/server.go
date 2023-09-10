@@ -110,8 +110,6 @@ func (s *Server) ListenAndServe() error {
 		return fmt.Errorf("failed to create tcp listener on %s:%d: %w", s.address, s.port, err)
 	}
 
-	logger.Info(fmt.Sprintf("Server listening on %s:%d", s.address, s.port))
-
 	grpcServer := grpc.NewServer(
 		grpc.ChainUnaryInterceptor(s.unaryLogInterceptor, s.unaryAuthorizationInterceptor),
 		grpc.ChainStreamInterceptor(s.streamLogInterceptor, s.streamAuthorizationInterceptor),
