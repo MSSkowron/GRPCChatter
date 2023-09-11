@@ -13,6 +13,8 @@ const (
 	ClaimUserIDKey = "id"
 	// ClaimUserNameKey is the key for user name claim.
 	ClaimUserNameKey = "userName"
+	// ClaimUserRolle is the key for user role claim.
+	ClaimUserRoleKey = "role"
 	// ClaimExpiresAtKey is the key for expiration time claim.
 	ClaimExpiresAtKey = "expiresAt"
 )
@@ -24,12 +26,13 @@ var (
 	ErrExpiredToken = errors.New("expired token")
 )
 
-// Generate generates a new JWT token with user ID, user name, and expiration time.
-func Generate(userID int, userName string, expirationTime time.Duration, secret string) (string, error) {
+// Generate generates a new JWT token with user ID, user name, user role and expiration time.
+func Generate(userID int, userName string, role string, expirationTime time.Duration, secret string) (string, error) {
 	expiration := time.Now().Add(expirationTime).Unix()
 	claims := &jwt.MapClaims{
 		ClaimUserIDKey:    userID,
 		ClaimUserNameKey:  userName,
+		ClaimUserRoleKey:  role,
 		ClaimExpiresAtKey: expiration,
 	}
 
@@ -57,13 +60,15 @@ func Validate(tokenString, secret string) error {
 		return ErrExpiredToken
 	}
 
-	_, ok = claims[ClaimUserIDKey].(float64)
-	if !ok {
+	if _, ok := claims[ClaimUserIDKey].(float64); !ok {
 		return ErrInvalidToken
 	}
 
-	_, ok = claims[ClaimUserNameKey].(string)
-	if !ok {
+	if _, ok := claims[ClaimUserNameKey].(string); !ok {
+		return ErrInvalidToken
+	}
+
+	if _, ok := claims[ClaimUserRoleKey].(string); !ok {
 		return ErrInvalidToken
 	}
 

@@ -10,19 +10,20 @@ import (
 const (
 	testSecret         = "testsecret123"
 	testUserName       = "MSSkowron"
+	testUserRole       = "USER"
 	testUserID         = 1
 	testExpirationTime = time.Hour
 )
 
 func TestGenerate(t *testing.T) {
-	tokenString, err := Generate(testUserID, testUserName, testExpirationTime, testSecret)
+	tokenString, err := Generate(testUserID, testUserName, testUserRole, testExpirationTime, testSecret)
 	require.NoError(t, err)
 	require.NotEmpty(t, tokenString)
 }
 
 func TestValidate(t *testing.T) {
 	// Valid token
-	tokenString, err := Generate(testUserID, testUserName, testExpirationTime, testSecret)
+	tokenString, err := Generate(testUserID, testUserName, testUserRole, testExpirationTime, testSecret)
 	require.NoError(t, err)
 
 	err = Validate(tokenString, testSecret)
@@ -34,7 +35,7 @@ func TestValidate(t *testing.T) {
 
 	// Token with incorrect secret
 	invalidSecret := "invalidsecret321"
-	tokenString, err = Generate(testUserID, testUserName, testExpirationTime, testSecret)
+	tokenString, err = Generate(testUserID, testUserName, testUserRole, testExpirationTime, testSecret)
 	require.NoError(t, err)
 
 	err = Validate(tokenString, invalidSecret)
@@ -43,7 +44,7 @@ func TestValidate(t *testing.T) {
 
 func TestGetClaim(t *testing.T) {
 	// Valid claim retrieval
-	tokenString, err := Generate(testUserID, testUserName, testExpirationTime, testSecret)
+	tokenString, err := Generate(testUserID, testUserName, testUserRole, testExpirationTime, testSecret)
 	require.NoError(t, err)
 
 	userID, err := GetClaim[float64](tokenString, testSecret, ClaimUserIDKey)
@@ -54,13 +55,17 @@ func TestGetClaim(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, testUserName, userName)
 
+	userRole, err := GetClaim[string](tokenString, testSecret, ClaimUserRoleKey)
+	require.NoError(t, err)
+	require.Equal(t, testUserRole, userRole)
+
 	expiresAt, err := GetClaim[float64](tokenString, testSecret, ClaimExpiresAtKey)
 	require.NoError(t, err)
 	require.GreaterOrEqual(t, expiresAt, float64(0))
 
 	// Token with incorrect secret
 	invalidSecret := "invalidsecret321"
-	tokenString, err = Generate(testUserID, testUserName, testExpirationTime, testSecret)
+	tokenString, err = Generate(testUserID, testUserName, testUserRole, testExpirationTime, testSecret)
 	require.NoError(t, err)
 
 	_, err = GetClaim[string](tokenString, invalidSecret, ClaimUserNameKey)
@@ -68,7 +73,7 @@ func TestGetClaim(t *testing.T) {
 
 	// Token with missing claims
 	missingClaimsSecret := "missingclaimssecret"
-	tokenString, err = Generate(testUserID, testUserName, testExpirationTime, missingClaimsSecret)
+	tokenString, err = Generate(testUserID, testUserName, testUserRole, testExpirationTime, missingClaimsSecret)
 	require.NoError(t, err)
 
 	_, err = GetClaim[string](tokenString, missingClaimsSecret, "nonexistentclaim")
