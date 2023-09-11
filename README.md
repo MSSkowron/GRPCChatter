@@ -44,7 +44,7 @@ The database revolves around the **users** table, storing essential user account
 
 ## Features
 
-- **Authentication and Authorization**: GRPCChatter implements user authentication through usernames and passwords via the REST Server. It generates JWT tokens, ensuring that only authenticated users can access the gRPC Server, maintaining a secure environment.
+- **Authentication and Authorization**: GRPCChatter implements user authentication through usernames and passwords via the REST Server. It generates JWT tokens, ensuring that only authenticated users, including different roles such as ADMIN and USER, can access specific resources and the gRPC Server, guaranteeing a secure environment.
 
 - **Real-Time Communication**: Ensures instantaneous message delivery, establishing true real-time communication among clients.
 
