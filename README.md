@@ -126,7 +126,7 @@ The REST Server serves is a component of the GRPCChatter application, responsibl
     ```json
     {
         "user_name": "string",
-        "password": "string",
+        "password": "string"
     }
     ```
 
@@ -137,6 +137,7 @@ The REST Server serves is a component of the GRPCChatter application, responsibl
         "id": "int64",
         "created_at": "time.Time",
         "user_name": "string",
+        "role": "string"
     }
     ```
 
