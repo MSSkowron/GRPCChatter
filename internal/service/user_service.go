@@ -12,7 +12,7 @@ import (
 	"github.com/MSSkowron/GRPCChatter/pkg/validation"
 )
 
-const userDefaultRole = "USER"
+const userDefaultRoleID = 1
 
 var (
 	// ErrUserAlreadyExists is returned when a user with the same username already exists.
@@ -34,13 +34,18 @@ type UserService interface {
 type UserServiceImpl struct {
 	tokenService   UserTokenService
 	userRepository repository.UserRepository
+	userRoles      map[int]string
 }
 
 // NewUserService creates a new UserServiceImpl instance with the provided tokenService and userRepository.
 func NewUserService(tokenService UserTokenService, userRepository repository.UserRepository) *UserServiceImpl {
+	// TODO: Fetch roles from the database and create a map of roles with their IDs.
 	return &UserServiceImpl{
 		tokenService:   tokenService,
 		userRepository: userRepository,
+		userRoles: map[int]string{
+			userDefaultRoleID: "USER",
+		},
 	}
 }
 
@@ -68,7 +73,7 @@ func (us *UserServiceImpl) RegisterUser(ctx context.Context, userRegister *dto.U
 	newUser := &model.User{
 		CreatedAt: time.Now(),
 		Username:  userRegister.Username,
-		Role:      userDefaultRole,
+		RoleID:    userDefaultRoleID,
 		Password:  hashedPassword,
 	}
 	newUserID, err := us.userRepository.AddUser(ctx, newUser)
@@ -80,7 +85,7 @@ func (us *UserServiceImpl) RegisterUser(ctx context.Context, userRegister *dto.U
 		ID:        int64(newUserID),
 		CreatedAt: newUser.CreatedAt,
 		Username:  newUser.Username,
-		Role:      newUser.Role,
+		Role:      us.userRoles[newUser.RoleID],
 	}, nil
 }
 
@@ -101,7 +106,7 @@ func (us *UserServiceImpl) LoginUser(ctx context.Context, userLogin *dto.UserLog
 		return nil, err
 	}
 
-	token, err := us.tokenService.GenerateToken(user.ID, user.Username, user.Role)
+	token, err := us.tokenService.GenerateToken(user.ID, user.Username, us.userRoles[user.RoleID])
 	if err != nil {
 		return nil, err
 	}

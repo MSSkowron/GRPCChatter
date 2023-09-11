@@ -25,9 +25,6 @@ type UserRepository interface {
 
 	// GetAllUsers retrieves all users from the database.
 	GetAllUsers(ctx context.Context) (users []*model.User, err error)
-
-	// UpdateUser updates a user's information in the database.
-	UpdateUser(ctx context.Context, user *model.User) (err error)
 }
 
 // UserRepositoryImpl implements the UserRepository interface.
@@ -43,9 +40,9 @@ func NewUserRepository(db database.Database) *UserRepositoryImpl {
 }
 
 func (ur *UserRepositoryImpl) AddUser(ctx context.Context, user *model.User) (int, error) {
-	query := "INSERT INTO users (created_at, username, password) VALUES ($1, $2, $3) RETURNING id"
+	query := "INSERT INTO users (created_at, username, password, role_id) VALUES ($1, $2, $3, $4) RETURNING id"
 
-	row, err := ur.db.QueryRowContext(ctx, query, user.CreatedAt, user.Username, user.Password)
+	row, err := ur.db.QueryRowContext(ctx, query, user.CreatedAt, user.Username, user.Password, user.RoleID)
 	if err != nil {
 		return 0, fmt.Errorf("failed to add user: %w", err)
 	}
@@ -132,14 +129,4 @@ func (ur *UserRepositoryImpl) GetAllUsers(ctx context.Context) ([]*model.User, e
 	}
 
 	return users, nil
-}
-
-func (ur *UserRepositoryImpl) UpdateUser(ctx context.Context, user *model.User) error {
-	query := "UPDATE users SET username = $1, password = $2 WHERE id = $3"
-
-	if _, err := ur.db.ExecContext(ctx, query, user.Username, user.Password, user.ID); err != nil {
-		return fmt.Errorf("failed to update user: %w", err)
-	}
-
-	return nil
 }
