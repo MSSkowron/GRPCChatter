@@ -14,7 +14,7 @@ var ErrInvalidUserToken = errors.New("invalid token")
 // UserTokenService is an interface that defines the methods required for user token management.
 type UserTokenService interface {
 	// GenerateToken generates a user token.
-	GenerateToken(int, string) (string, error)
+	GenerateToken(int, string, string) (string, error)
 
 	// ValidateToken validates a user token.
 	ValidateToken(string) error
@@ -24,6 +24,9 @@ type UserTokenService interface {
 
 	// GetUserNameFromToken retrieves the user name from a user token.
 	GetUserNameFromToken(string) (string, error)
+
+	// GetUserRoleFromToken retrieves the user role from a user token.
+	GetUserRoleFromToken(string) (string, error)
 }
 
 // UserTokenServiceImpl implements the UserTokenService interface.
@@ -40,8 +43,8 @@ func NewUserTokenService(secret string, duration time.Duration) *UserTokenServic
 	}
 }
 
-func (s *UserTokenServiceImpl) GenerateToken(id int, userName string) (string, error) {
-	token, err := token.Generate(id, userName, s.duration, s.secret)
+func (s *UserTokenServiceImpl) GenerateToken(userID int, userName, userRole string) (string, error) {
+	token, err := token.Generate(userID, userName, userRole, s.duration, s.secret)
 	if err != nil {
 		return "", fmt.Errorf("failed to generate token: %w", err)
 	}
@@ -69,4 +72,12 @@ func (s *UserTokenServiceImpl) GetUserNameFromToken(t string) (string, error) {
 		return "", ErrInvalidChatToken
 	}
 	return userName, nil
+}
+
+func (s *UserTokenServiceImpl) GetUserRoleFromToken(t string) (string, error) {
+	userRole, err := token.GetClaim[string](t, s.secret, token.ClaimUserRoleKey)
+	if err != nil {
+		return "", ErrInvalidChatToken
+	}
+	return userRole, nil
 }

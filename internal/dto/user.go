@@ -7,6 +7,7 @@ type UserDTO struct {
 	ID        int64     `json:"id"`
 	CreatedAt time.Time `json:"created_at"`
 	Username  string    `json:"user_name"`
+	Role      string    `json:"role"`
 }
 
 // UserRegisterDTO represents a data transfer object (DTO) for creating a user account request.

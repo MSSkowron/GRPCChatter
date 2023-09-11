@@ -12,6 +12,8 @@ import (
 	"github.com/MSSkowron/GRPCChatter/pkg/validation"
 )
 
+const userDefaultRole = "USER"
+
 var (
 	// ErrUserAlreadyExists is returned when a user with the same username already exists.
 	ErrUserAlreadyExists = errors.New("user with the provided user name already exists")
@@ -63,20 +65,22 @@ func (us *UserServiceImpl) RegisterUser(ctx context.Context, userRegister *dto.U
 		return nil, err
 	}
 
-	currTime := time.Now()
-	id, err := us.userRepository.AddUser(ctx, &model.User{
-		CreatedAt: currTime,
+	newUser := &model.User{
+		CreatedAt: time.Now(),
 		Username:  userRegister.Username,
+		Role:      userDefaultRole,
 		Password:  hashedPassword,
-	})
+	}
+	newUserID, err := us.userRepository.AddUser(ctx, newUser)
 	if err != nil {
 		return nil, err
 	}
 
 	return &dto.UserDTO{
-		ID:        int64(id),
-		CreatedAt: currTime,
-		Username:  userRegister.Username,
+		ID:        int64(newUserID),
+		CreatedAt: newUser.CreatedAt,
+		Username:  newUser.Username,
+		Role:      newUser.Role,
 	}, nil
 }
 
@@ -97,7 +101,7 @@ func (us *UserServiceImpl) LoginUser(ctx context.Context, userLogin *dto.UserLog
 		return nil, err
 	}
 
-	token, err := us.tokenService.GenerateToken(user.ID, user.Username)
+	token, err := us.tokenService.GenerateToken(user.ID, user.Username, user.Role)
 	if err != nil {
 		return nil, err
 	}
