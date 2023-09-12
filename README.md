@@ -40,7 +40,11 @@ The architecture of the GRPCChatter is designed with a layered approach to ensur
 
 ![Database schema](./docs/database_schema.png)
 
-The database revolves around the **users** table, storing essential user account information.
+The database schema consists of two primary tables:
+
+- **Users**: Stores user information and includes a reference to the *Roles* table, indicating each user's role.
+
+- **Roles**: Store role information. It plays a key role in defining user access and permissions.
 
 ## Features
 
