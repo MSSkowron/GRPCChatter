@@ -40,9 +40,9 @@ func NewUserRepository(db database.Database) *UserRepositoryImpl {
 }
 
 func (ur *UserRepositoryImpl) AddUser(ctx context.Context, user *model.User) (int, error) {
-	query := "INSERT INTO users (created_at, username, password, role_id) VALUES ($1, $2, $3, $4) RETURNING id"
+	query := "INSERT INTO users (created_at, username, password) VALUES ($1, $2, $3) RETURNING id"
 
-	row, err := ur.db.QueryRowContext(ctx, query, user.CreatedAt, user.Username, user.Password, user.RoleID)
+	row, err := ur.db.QueryRowContext(ctx, query, user.CreatedAt, user.Username, user.Password)
 	if err != nil {
 		return 0, fmt.Errorf("failed to add user: %w", err)
 	}
@@ -66,7 +66,12 @@ func (ur *UserRepositoryImpl) DeleteUser(ctx context.Context, userID int) error 
 }
 
 func (ur *UserRepositoryImpl) GetUserByID(ctx context.Context, userID int) (*model.User, error) {
-	query := "SELECT id, created_at, username, password FROM users WHERE id = $1"
+	query := `
+		SELECT u.id, u.created_at, u.username, u.password, r.name
+		FROM users u
+		LEFT JOIN roles r ON u.role_id = r.id
+		WHERE u.id = $1
+	`
 
 	row, err := ur.db.QueryRowContext(ctx, query, userID)
 	if err != nil {
@@ -74,7 +79,7 @@ func (ur *UserRepositoryImpl) GetUserByID(ctx context.Context, userID int) (*mod
 	}
 
 	var user model.User
-	if err = row.Scan(&user.ID, &user.CreatedAt, &user.Username, &user.Password); err != nil {
+	if err = row.Scan(&user.ID, &user.CreatedAt, &user.Username, &user.Password, &user.Role); err != nil {
 		if err == sql.ErrNoRows {
 			return nil, nil
 		}
@@ -86,7 +91,12 @@ func (ur *UserRepositoryImpl) GetUserByID(ctx context.Context, userID int) (*mod
 }
 
 func (ur *UserRepositoryImpl) GetUserByUsername(ctx context.Context, username string) (*model.User, error) {
-	query := "SELECT id, created_at, username, password FROM users WHERE username  = $1"
+	query := `
+		SELECT u.id, u.created_at, u.username, u.password, r.name
+		FROM users u
+		LEFT JOIN roles r ON u.role_id = r.id
+		WHERE username  = $1
+	`
 
 	row, err := ur.db.QueryRowContext(ctx, query, username)
 	if err != nil {
@@ -94,7 +104,7 @@ func (ur *UserRepositoryImpl) GetUserByUsername(ctx context.Context, username st
 	}
 
 	var user model.User
-	if err = row.Scan(&user.ID, &user.CreatedAt, &user.Username, &user.Password); err != nil {
+	if err = row.Scan(&user.ID, &user.CreatedAt, &user.Username, &user.Password, &user.Role); err != nil {
 		if err == sql.ErrNoRows {
 			return nil, nil
 		}
@@ -106,7 +116,11 @@ func (ur *UserRepositoryImpl) GetUserByUsername(ctx context.Context, username st
 }
 
 func (ur *UserRepositoryImpl) GetAllUsers(ctx context.Context) ([]*model.User, error) {
-	query := "SELECT id, created_at, username, password FROM users"
+	query := `
+		SELECT u.id, u.created_at, u.username, u.password, r.name
+		FROM users u
+		LEFT JOIN roles r ON u.role_id = r.id
+	`
 
 	rows, err := ur.db.QueryContext(ctx, query)
 	if err != nil {
