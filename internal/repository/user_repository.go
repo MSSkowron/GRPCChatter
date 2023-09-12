@@ -138,10 +138,10 @@ func (ur *UserRepositoryImpl) GetAllUsers(ctx context.Context) ([]*model.User, e
 	}
 	defer rows.Close()
 
-	users := make([]*model.User, 0)
+	users := []*model.User{}
 	for rows.Next() {
 		var user model.User
-		err := rows.Scan(&user.ID, &user.CreatedAt, &user.Username, &user.Password)
+		err := rows.Scan(&user.ID, &user.CreatedAt, &user.Username, &user.Password, &user.Role)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan user row: %w", err)
 		}
