@@ -12,7 +12,7 @@ import (
 // UserRepository is an interface that defines the methods required for user data management.
 type UserRepository interface {
 	// AddUser adds a new user to the database.
-	AddUser(ctx context.Context, user *model.User) (userID int, err error)
+	AddUser(ctx context.Context, user *model.User) (addedUser *model.User, err error)
 
 	// DeleteUser deletes a user from the database by their userID.
 	DeleteUser(ctx context.Context, userID int) (err error)
@@ -39,20 +39,19 @@ func NewUserRepository(db database.Database) *UserRepositoryImpl {
 	}
 }
 
-func (ur *UserRepositoryImpl) AddUser(ctx context.Context, user *model.User) (int, error) {
-	query := "INSERT INTO users (created_at, username, password) VALUES ($1, $2, $3) RETURNING id"
+func (ur *UserRepositoryImpl) AddUser(ctx context.Context, user *model.User) (*model.User, error) {
+	query := "INSERT INTO users (created_at, username, password) VALUES ($1, $2, $3) RETURNING *"
 
 	row, err := ur.db.QueryRowContext(ctx, query, user.CreatedAt, user.Username, user.Password)
 	if err != nil {
-		return 0, fmt.Errorf("failed to add user: %w", err)
+		return nil, fmt.Errorf("failed to add user: %w", err)
 	}
 
-	var userID int
-	if err := row.Scan(&userID); err != nil {
-		return 0, fmt.Errorf("failed to add user: %w", err)
+	if err = row.Scan(user.ID, user.CreatedAt, user.Username, user.Password, user.Role); err != nil {
+		return nil, fmt.Errorf("failed to add user: %w", err)
 	}
 
-	return userID, nil
+	return user, nil
 }
 
 func (ur *UserRepositoryImpl) DeleteUser(ctx context.Context, userID int) error {
