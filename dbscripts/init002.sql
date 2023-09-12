@@ -1,6 +1,6 @@
 CREATE TABLE roles (
     id bigint primary key generated always as identity,
-    name varchar(255) unique NOT NULL,
+    name varchar(255) unique NOT NULL
 );
 
 INSERT INTO roles (name) VALUES ('USER');
