@@ -47,8 +47,19 @@ func (ur *UserRepositoryImpl) AddUser(ctx context.Context, user *model.User) (*m
 		return nil, fmt.Errorf("failed to add user: %w", err)
 	}
 
-	if err = row.Scan(user.ID, user.CreatedAt, user.Username, user.Password, user.Role); err != nil {
+	var roleID int
+	if err = row.Scan(&user.ID, &user.CreatedAt, &user.Username, &user.Password, &roleID); err != nil {
 		return nil, fmt.Errorf("failed to add user: %w", err)
+	}
+
+	query = "SELECT name FROM roles WHERE id = $1"
+	row, err = ur.db.QueryRowContext(ctx, query, roleID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get role ID: %w", err)
+	}
+
+	if err = row.Scan(&user.Role); err != nil {
+		return nil, fmt.Errorf("failed to get role ID: %w", err)
 	}
 
 	return user, nil
