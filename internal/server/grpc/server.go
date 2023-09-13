@@ -30,6 +30,7 @@ const (
 	contextKeyShortCode = contextKey("shortCode")
 	contextKeyUserID    = contextKey("userID")
 	contextKeyUserName  = contextKey("userName")
+	contextKeyUserRole  = contextKey("userRole")
 
 	errMsgInternalServer          = "Internal server error while %s."
 	errMsgChatRoomNotFound        = "Chat room with short code [%s] not found. Please check the provided short code."

@@ -44,13 +44,14 @@ func (s *Server) unaryAuthorizationInterceptor(ctx context.Context, req any, inf
 		return handler(ctx, req)
 	}
 	if _, exists := s.authorizedUserTokenUnaryMethods[info.FullMethod]; exists {
-		userID, userName, err := s.authorizeUserToken(ctx)
+		userID, userName, userRole, err := s.authorizeUserToken(ctx)
 		if err != nil {
 			return nil, err
 		}
 
 		ctx = context.WithValue(ctx, contextKeyUserID, userID)
 		ctx = context.WithValue(ctx, contextKeyUserName, userName)
+		ctx = context.WithValue(ctx, contextKeyUserRole, userRole)
 		return handler(ctx, req)
 	}
 
@@ -86,13 +87,14 @@ func (s *Server) streamAuthorizationInterceptor(srv any, ss grpc.ServerStream, i
 		return handler(srv, wrapped)
 	}
 	if _, exists := s.authorizedUserTokenStreamMethods[info.FullMethod]; exists {
-		userID, userName, err := s.authorizeUserToken(ss.Context())
+		userID, userName, userRole, err := s.authorizeUserToken(ss.Context())
 		if err != nil {
 			return err
 		}
 
 		newCtx := context.WithValue(ss.Context(), contextKeyUserID, userID)
 		newCtx = context.WithValue(newCtx, contextKeyUserName, userName)
+		newCtx = context.WithValue(newCtx, contextKeyUserRole, userRole)
 
 		wrapped := wrapper.WrapServerStream(ss)
 		wrapped.SetContext(newCtx)
@@ -160,43 +162,51 @@ func (s *Server) authorizeChatToken(ctx context.Context) (string, string, error)
 	return shortCode, userName, nil
 }
 
-func (s *Server) authorizeUserToken(ctx context.Context) (int, string, error) {
+func (s *Server) authorizeUserToken(ctx context.Context) (int, string, string, error) {
 	md, ok := metadata.FromIncomingContext(ctx)
 	if !ok {
-		return 0, "", status.Errorf(codes.Unauthenticated, errMsgMissingHeaders, grpcHeaderTokenKey, grpcHeaderTokenKey)
+		return 0, "", "", status.Errorf(codes.Unauthenticated, errMsgMissingHeaders, grpcHeaderTokenKey, grpcHeaderTokenKey)
 	}
 
 	tokens := md.Get(grpcHeaderTokenKey)
 	if len(tokens) == 0 {
-		return 0, "", status.Errorf(codes.Unauthenticated, errMsgTokenMissing, grpcHeaderTokenKey)
+		return 0, "", "", status.Errorf(codes.Unauthenticated, errMsgTokenMissing, grpcHeaderTokenKey)
 	}
 	userToken := tokens[0]
-
 	if err := s.userTokenService.ValidateToken(userToken); err != nil {
 		if errors.Is(err, service.ErrInvalidUserToken) {
-			return 0, "", status.Error(codes.Unauthenticated, errMsgInvalidToken)
+			return 0, "", "", status.Error(codes.Unauthenticated, errMsgInvalidToken)
 		}
 
-		return 0, "", status.Errorf(codes.Internal, errMsgInternalServer, "validating token")
+		return 0, "", "", status.Errorf(codes.Internal, errMsgInternalServer, "validating token")
 	}
 
 	userID, err := s.userTokenService.GetUserIDFromToken(userToken)
 	if err != nil {
 		if errors.Is(err, service.ErrInvalidUserToken) {
-			return 0, "", status.Error(codes.Unauthenticated, errMsgInvalidToken)
+			return 0, "", "", status.Error(codes.Unauthenticated, errMsgInvalidToken)
 		}
 
-		return 0, "", status.Errorf(codes.Internal, errMsgInternalServer, "retrieving user ID from token")
+		return 0, "", "", status.Errorf(codes.Internal, errMsgInternalServer, "retrieving user ID from token")
 	}
 
 	userName, err := s.userTokenService.GetUserNameFromToken(userToken)
 	if err != nil {
 		if errors.Is(err, service.ErrInvalidChatToken) {
-			return 0, "", status.Error(codes.Unauthenticated, errMsgInvalidToken)
+			return 0, "", "", status.Error(codes.Unauthenticated, errMsgInvalidToken)
 		}
 
-		return 0, "", status.Errorf(codes.Internal, errMsgInternalServer, "retrieving user name from token")
+		return 0, "", "", status.Errorf(codes.Internal, errMsgInternalServer, "retrieving user name from token")
 	}
 
-	return userID, userName, nil
+	userRole, err := s.userTokenService.GetUserRoleFromToken(userToken)
+	if err != nil {
+		if errors.Is(err, service.ErrInvalidUserToken) {
+			return 0, "", "", status.Error(codes.Unauthenticated, errMsgInvalidToken)
+		}
+
+		return 0, "", "", status.Errorf(codes.Internal, errMsgInternalServer, "retrieving user role from token")
+	}
+
+	return userID, userName, userRole, nil
 }
