@@ -225,7 +225,7 @@ func (s *Server) ListChatRoomUsers(ctx context.Context, req *emptypb.Empty) (*pr
 		return nil, status.Errorf(codes.Internal, errMsgInternalServer, "retrieving users from chat room")
 	}
 
-	var resUsers []*proto.User
+	resUsers := []*proto.User{}
 	for _, user := range users {
 		if user != userName {
 			resUsers = append(resUsers, &proto.User{
