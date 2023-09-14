@@ -23,8 +23,7 @@ const (
 	// DefaultPort is the default port the server listens on.
 	DefaultPort = 5000
 	// DefaultAddress is the default address the server listens on.
-	DefaultAddress     = ""
-	grpcHeaderTokenKey = "token"
+	DefaultAddress = ""
 
 	contextKeyRPCID     = contextKey("rpcID")
 	contextKeyShortCode = contextKey("shortCode")

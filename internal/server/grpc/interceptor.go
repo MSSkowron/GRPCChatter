@@ -16,6 +16,8 @@ import (
 )
 
 const (
+	grpcHeaderTokenKey = "token"
+
 	errMsgMissingHeaders       = "Missing gRPC headers: [%s]. Please include your authentication token in the [%s] gRPC header."
 	errMsgTokenMissing         = "Authentication token missing in gRPC headers. Please include your token in the [%s] gRPC header."
 	errMsgInvalidToken         = "Invalid authentication token. Please provide a valid token."
