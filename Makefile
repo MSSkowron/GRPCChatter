@@ -22,4 +22,7 @@ format:
 proto:
 	protoc --go_out=./proto/gen --go_opt=paths=source_relative --go-grpc_out=require_unimplemented_servers=false:./proto/gen --go-grpc_opt=paths=source_relative ./proto/grpcchatter.proto
 
-.PHONY: build run test lint clean format
+docker-build:
+	docker build -t grpcchatter:latest . -f build/Dockerfile
+
+.PHONY: build run test lint clean format proto docker-build docker-tag docker-push
