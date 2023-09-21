@@ -42,7 +42,7 @@ The architecture of the GRPCChatter is designed with a layered approach to ensur
 
 The database schema consists of two primary tables:
 
-- **Users**: Stores user information and includes a reference to the *Roles* table, indicating each user's role.
+- **Users**: Stores user information and includes a reference to the _Roles_ table, indicating each user's role.
 
 - **Roles**: Store role information. It plays a key role in defining user access and permissions.
 
@@ -74,50 +74,51 @@ To start using GRPCChatter, follow these steps to run the application:
 
 1. Clone the repository:
 
-    ```
-    git clone https://github.com/MSSkowron/GRPCChatter.git
-    ```
+   ```
+   git clone https://github.com/MSSkowron/GRPCChatter.git
+   ```
 
 2. Navigate to the project directory:
 
-    ```
-    cd GRPCChatter
-    ```
+   ```
+   cd GRPCChatter
+   ```
 
 3. Build & Run the application:
 
-    ```
-    go run ./cmd/grpcchatter/main.go
-    ```
+   ```
+   go run ./cmd/grpcchatter/main.go
+   ```
 
-    Optionally, you can use the **--config** flag to specify a configuration file path. The provided configuration file should be in the **.env** format. If you don't provide any configuration, the [**default**](./configs/default_config.env) configuration will be used.
+   Optionally, you can use the **--config** flag to specify a configuration file path. The provided configuration file should be in the **.env** format. If you don't provide any configuration, the [**default**](./configs/default_config.env) configuration will be used.
 
-    You can configure the following values in your configuration file:
-    - **DATABASE_URL**: Connection string for PostgreSQL database.
-    - **REST_SERVER_ADDRESS**: IP address where the REST server will listen.
-    - **REST_SERVER_PORT**: Port on which the REST server will listen.
-    - **GRPC_SERVER_ADDRESS**: IP address where the gRPC server will listen.
-    - **GRPC_SERVER_PORT**: Port on which the gRPC server will listen.
-    - **TOKEN_DURATION**: Duration for which the JWT token is valid.
-    - **SECRET**: Secret key used for JWT token signing and validation.
-    - **SHORT_CODE_LENGTH**: Length of generated room short codes.
-    - **MAX_MESSAGE_QUEUE_SIZE**: Maximum size of the message queue used to store messages to be sent to clients.
+   You can configure the following values in your configuration file:
 
-    Example of flag usage with a custom configuration file:
+   - **DATABASE_URL**: Connection string for PostgreSQL database.
+   - **REST_SERVER_ADDRESS**: IP address where the REST server will listen.
+   - **REST_SERVER_PORT**: Port on which the REST server will listen.
+   - **GRPC_SERVER_ADDRESS**: IP address where the gRPC server will listen.
+   - **GRPC_SERVER_PORT**: Port on which the gRPC server will listen.
+   - **TOKEN_DURATION**: Duration for which the JWT token is valid.
+   - **SECRET**: Secret key used for JWT token signing and validation.
+   - **SHORT_CODE_LENGTH**: Length of generated room short codes.
+   - **MAX_MESSAGE_QUEUE_SIZE**: Maximum size of the message queue used to store messages to be sent to clients.
 
-    ```
-    go run ./cmd/grpcchatter/main.go --config "./configs/my_config.env"
-    ```
+   Example of flag usage with a custom configuration file:
+
+   ```
+   go run ./cmd/grpcchatter/main.go --config "./configs/my_config.env"
+   ```
 
 4. Docker Support
 
-    Alternatively, you can run the application using Docker. In the project directory, use the following command to start GRPCChatter within a Docker container:
+   Alternatively, you can run the application using Docker. In the project directory, use the following command to start GRPCChatter within a Docker container:
 
-    ```
-    docker compose up
-    ```
+   ```
+   docker compose up
+   ```
 
-    The [**default**](./configs/default_config.env) configuration will be used.
+   The [**default**](./configs/default_config.env) configuration will be used.
 
 ### GRPCChatter REST Server
 
@@ -125,50 +126,50 @@ The REST Server serves is a component of the GRPCChatter application, responsibl
 
 - **\/register Method: POST**: Registers a new user.
 
-    Request body:
+  Request body:
 
-    ```json
-    {
-        "user_name": "string",
-        "password": "string"
-    }
-    ```
+  ```json
+  {
+    "user_name": "string",
+    "password": "string"
+  }
+  ```
 
-    Response Body:
+  Response Body:
 
-    ```json
-    {
-        "id": "int64",
-        "created_at": "time.Time",
-        "user_name": "string",
-        "role": "string"
-    }
-    ```
+  ```json
+  {
+    "id": "int64",
+    "created_at": "time.Time",
+    "user_name": "string",
+    "role": "string"
+  }
+  ```
 
 - **\/login Method: POST**: Authenticates a user and returns an authentication token.
 
-    Request Body:
+  Request Body:
 
-    ```json
-    {
-        "user_name": "string",
-        "password": "string"
-    }
-    ```
+  ```json
+  {
+    "user_name": "string",
+    "password": "string"
+  }
+  ```
 
-    Response Body:
+  Response Body:
 
-    ```json
-    {
-        "token": "string"
-    }
-    ```
+  ```json
+  {
+    "token": "string"
+  }
+  ```
 
 In case of errors, the server returns an appropriate status code and JSON in the following format:
 
 ```json
 {
-    "error": "string"
+  "error": "string"
 }
 ```
 
@@ -198,7 +199,7 @@ The GRPCChatter Client is responsible for managing the client-side logic of the 
 
 - **DeleteChatRoom**: Delete a chat room if the calling client is the owner of the room. Before using this feature, clients must invoke the Login method to establish their identity.
 
-- **JoinChatRoom**:  Connect the client to a designated chat room, enabling seamless message transmission and reception. If the client isn't already connected, it initiates the connection, joins the chat room, and establishes a bidirectional stream for real-time communication. Before using this feature, clients must invoke the Login method to establish their identity.
+- **JoinChatRoom**: Connect the client to a designated chat room, enabling seamless message transmission and reception. If the client isn't already connected, it initiates the connection, joins the chat room, and establishes a bidirectional stream for real-time communication. Before using this feature, clients must invoke the Login method to establish their identity.
 
 - **ListChatRoomUsers**: Retrieve a list of users currently active within a chat room, based on the provided short access code. This method is invaluable for promptly identifying all users currently online within a specific chat room. Before using this feature, clients must invoke the JoinChatRoom method.
 
@@ -211,9 +212,19 @@ The GRPCChatter Client is responsible for managing the client-side logic of the 
 ## Example
 
 You can find an example client code in the [**client_cli**](./examples/client_cli/main.go) directory.
-This demonstrates the usage of the client package through a CLI application.
+This example demonstrates how to use the client package to build a command-line interface (CLI) application for your chat service.
 
-![Example](./docs/examples_client_cli.png)
+- Creating an Account
+
+  ![ExampleCreateAccount](./docs/example_register.png)
+
+- Logging In and Creating a Chat Room
+
+  ![ExampleLogInCreateChatRoom](./docs/example_login_and_create_chat_room.png)
+
+- Joining a Chat Room and Chatting
+
+  ![ExampleJoinChatRoomAndChat](./docs/example_chat.png)
 
 ## License
 
