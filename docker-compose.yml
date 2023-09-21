@@ -23,7 +23,7 @@ services:
 
   server:
     container_name: grpcchatter_server
-    image: mateuszskowron21/grpcchatter:latest
+    build: .
     depends_on:
       database:
         condition: service_healthy
@@ -31,7 +31,7 @@ services:
     networks:
       - grpcchatter_net
     ports:
-      - "5000:5000"
+      - "5050:5050"
       - "8080:8080"
 
 volumes:
