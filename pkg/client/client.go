@@ -128,7 +128,6 @@ func (c *Client) CreateChatRoom(roomName, roomPassword string) (string, error) {
 	if c.authToken == "" {
 		return "", ErrNotLoggedIn
 	}
-
 	if c.conn == nil {
 		if err := c.connect(); err != nil {
 			return "", err
@@ -159,7 +158,6 @@ func (c *Client) DeleteChatRoom(shortCode string) error {
 	if c.authToken == "" {
 		return ErrNotLoggedIn
 	}
-
 	if c.conn == nil {
 		if err := c.connect(); err != nil {
 			return err
@@ -187,14 +185,12 @@ func (c *Client) JoinChatRoom(shortCode string, password string) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	if c.stream != nil {
-		return ErrAlreadyJoinedChatRoom
-	}
-
 	if c.authToken == "" {
 		return ErrNotLoggedIn
 	}
-
+	if c.stream != nil {
+		return ErrAlreadyJoinedChatRoom
+	}
 	if c.conn == nil {
 		if err := c.connect(); err != nil {
 			return err
@@ -212,7 +208,6 @@ func (c *Client) JoinChatRoom(shortCode string, password string) error {
 	if err != nil {
 		return fmt.Errorf("failed to join the chat room: %w", err)
 	}
-
 	c.chatToken = resp.GetToken()
 
 	md = metadata.New(map[string]string{
@@ -242,19 +237,13 @@ func (c *Client) JoinChatRoom(shortCode string, password string) error {
 // The JoinChatRoom() method must be called before the first usage.
 func (c *Client) ListChatRoomUsers() ([]string, error) {
 	c.mu.RLock()
-	if c.chatToken == "" {
-		c.mu.RUnlock()
-		return nil, ErrNotJoinedChatRoom
-	}
-
-	if c.stream == nil {
-		c.mu.RUnlock()
-		return nil, ErrStreamNotExist
-	}
-
 	if c.conn == nil {
 		c.mu.RUnlock()
 		return nil, ErrConnectionNotExist
+	}
+	if c.stream == nil {
+		c.mu.RUnlock()
+		return nil, ErrStreamNotExist
 	}
 	c.mu.RUnlock()
 
@@ -280,19 +269,13 @@ func (c *Client) ListChatRoomUsers() ([]string, error) {
 // The JoinChatRoom() method must be called before the first usage.
 func (c *Client) Send(message string) error {
 	c.mu.RLock()
-	if c.chatToken == "" {
-		c.mu.RUnlock()
-		return ErrNotJoinedChatRoom
-	}
-
-	if c.stream == nil {
-		c.mu.RUnlock()
-		return ErrStreamNotExist
-	}
-
 	if c.conn == nil {
 		c.mu.RUnlock()
 		return ErrConnectionNotExist
+	}
+	if c.stream == nil {
+		c.mu.RUnlock()
+		return ErrStreamNotExist
 	}
 	c.mu.RUnlock()
 
@@ -310,24 +293,21 @@ func (c *Client) Send(message string) error {
 // The JoinChatRoom() method must be called before the first usage.
 func (c *Client) Receive() (Message, error) {
 	c.mu.RLock()
-	if c.chatToken == "" {
-		c.mu.RUnlock()
-		return Message{}, ErrNotJoinedChatRoom
-	}
-
-	if c.stream == nil {
-		c.mu.RUnlock()
-		return Message{}, ErrStreamNotExist
-	}
-
 	if c.conn == nil {
 		c.mu.RUnlock()
 		return Message{}, ErrConnectionNotExist
 	}
+	if c.stream == nil {
+		c.mu.RUnlock()
+		return Message{}, ErrStreamNotExist
+	}
 	c.mu.RUnlock()
 
 	select {
-	case msg := <-c.receiveQueue:
+	case msg, ok := <-c.receiveQueue:
+		if !ok {
+			return msg, ErrConnectionClosed
+		}
 		return msg, nil
 	case <-c.closeCh:
 		return Message{}, ErrConnectionClosed
@@ -335,7 +315,10 @@ func (c *Client) Receive() (Message, error) {
 }
 
 func (c *Client) send() {
-	defer c.wg.Done()
+	defer func() {
+		close(c.sendQueue)
+		c.wg.Done()
+	}()
 	for {
 		select {
 		case msg := <-c.sendQueue:
@@ -353,7 +336,10 @@ func (c *Client) send() {
 }
 
 func (c *Client) receive() {
-	defer c.wg.Done()
+	defer func() {
+		close(c.receiveQueue)
+		c.wg.Done()
+	}()
 	for {
 		c.mu.RLock()
 		msg, err := c.stream.Recv()
@@ -399,23 +385,16 @@ func (c *Client) close() {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	if c.conn == nil {
-		c.clear()
-		return
-	}
-
 	select {
 	case <-c.closeCh:
 	default:
 		close(c.closeCh)
 	}
 
-	c.conn.Close()
+	if c.conn != nil {
+		c.conn.Close()
+	}
 
-	c.clear()
-}
-
-func (c *Client) clear() {
 	c.conn, c.grpcClient, c.stream, c.authToken, c.chatToken = nil, nil, nil, "", ""
 }
 
