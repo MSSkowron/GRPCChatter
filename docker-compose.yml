@@ -8,13 +8,13 @@ services:
     environment:
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=postgres
-    ports:
-      - "5432:5432"
     volumes:
       - grpcchatter_data:/var/lib/postgresql/data
       - ./dbscripts/:/docker-entrypoint-initdb.d/
     networks:
       - grpcchatter_net
+    ports:
+      - "5432:5432"
     healthcheck:
       test: [ "CMD-SHELL", "pg_isready -U postgres" ]
       interval: 10s
@@ -23,16 +23,16 @@ services:
 
   server:
     container_name: grpcchatter_server
-    build: .
-    depends_on:
-      database:
-        condition: service_healthy
+    image: mateuszskowron21/grpcchatter
     restart: on-failure
     networks:
       - grpcchatter_net
     ports:
       - "5050:5050"
       - "8080:8080"
+    depends_on:
+      database:
+        condition: service_healthy
 
 volumes:
   grpcchatter_data:
